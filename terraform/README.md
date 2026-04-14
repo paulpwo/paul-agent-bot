@@ -1,139 +1,122 @@
 # PaulBot — Terraform Infrastructure
 
-AWS ECS Fargate infrastructure for PaulBot (Next.js + BullMQ workers).
+Single EC2 instance running Docker Compose (Redis + SQLite on EBS).
 
 ## Architecture
 
 ```
-Internet → ALB (HTTPS) → ECS Fargate
-                           ├── paulbot-web  (Next.js + webhook receivers, port 3000)
-                           └── paulbot-worker (BullMQ agent runner, no port)
-                                      ↓
-                               RDS PostgreSQL 16
-                               ElastiCache Redis 7
-                               S3 (workspace data)
-                               Secrets Manager (credentials)
+Internet → Caddy (HTTPS/TLS) → paulbot:3000  (Next.js + webhooks)
+                                paulbot-worker (BullMQ agent runner)
+                                redis          (queues + pub/sub)
+
+Data on EBS volume (/data):
+  /data/paulbot.db    ← SQLite database (survives deploys)
+  /data/workspaces/   ← cloned repos (survives deploys)
+  /data/caddy/        ← TLS certificates (survives deploys)
 ```
+
+## What Terraform provisions
+
+| Resource | Purpose |
+|----------|---------|
+| EC2 instance (Ubuntu 22.04) | Runs the full stack via Docker Compose |
+| EBS data volume (separate) | SQLite DB + workspaces + Caddy certs — `delete_on_termination = false` |
+| Elastic IP | Static public IP — point your DNS A record here |
+| Security group | Allows 22 (SSH), 80 (HTTP), 443 (HTTPS) |
+| IAM instance profile | Allows EC2 to pull images from ECR |
+| ECR repository | Docker image registry |
+| EventBridge Scheduler | Start/stop EC2 on schedule to save money |
+| GitHub Actions OIDC role | Allows CI to push images to ECR without long-lived keys |
 
 ## Prerequisites
 
-1. **AWS profile** — create a dedicated profile (NOT `default` — that is TalentPitch):
+1. **AWS CLI configured:**
    ```bash
    aws configure --profile paulbot
    ```
 
-2. **Bootstrap state backend** — create these manually once before `terraform init`:
+2. **S3 + DynamoDB for Terraform state** — create once before `terraform init`:
    ```bash
-   # S3 state bucket
+   PROFILE=paulbot
+   REGION=us-east-1
+
    aws s3api create-bucket \
      --bucket paulbot-terraform-state \
-     --region us-east-1 \
-     --profile paulbot
+     --region $REGION --profile $PROFILE
 
    aws s3api put-bucket-versioning \
      --bucket paulbot-terraform-state \
      --versioning-configuration Status=Enabled \
-     --profile paulbot
+     --profile $PROFILE
 
    aws s3api put-bucket-encryption \
      --bucket paulbot-terraform-state \
      --server-side-encryption-configuration \
        '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}' \
-     --profile paulbot
+     --profile $PROFILE
 
-   # DynamoDB lock table
    aws dynamodb create-table \
      --table-name paulbot-terraform-locks \
      --attribute-definitions AttributeName=LockID,AttributeType=S \
      --key-schema AttributeName=LockID,KeyType=HASH \
      --billing-mode PAY_PER_REQUEST \
-     --region us-east-1 \
-     --profile paulbot
+     --region $REGION --profile $PROFILE
+   ```
+
+3. **SSH key pair** — the public key is uploaded to EC2:
+   ```bash
+   ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519
    ```
 
 ## First deploy
 
 ```bash
-cd terraform/
+# 1. Copy and fill in your variables
+cp terraform/terraform.tfvars.example terraform/terraform.tfvars
+# Edit terraform.tfvars — set domain_name, github_repo, etc.
 
-# 1. Init
+# 2. Init
+cd terraform/
 terraform init
 
-# 2. Plan (prod)
-terraform plan -var-file=environments/prod.tfvars \
-  -var="domain_name=paulbot.yourdomain.com" \
-  -var="github_repo=yourusername/paulbot"
+# 3. Plan
+terraform plan -var-file=terraform.tfvars
 
-# 3. Apply
-terraform apply -var-file=environments/prod.tfvars \
-  -var="domain_name=paulbot.yourdomain.com" \
-  -var="github_repo=yourusername/paulbot"
+# 4. Apply
+terraform apply -var-file=terraform.tfvars
 ```
 
-## After first apply — populate secrets
-
-The apply creates Secrets Manager secrets with **no value**. Populate them before
-deploying the container:
+## After first apply
 
 ```bash
-PROFILE=paulbot
-ENV=prod
+# Get outputs
+terraform output
 
-# DB password (pick a strong one — also needs to match what you set in AWS)
-aws secretsmanager put-secret-value \
-  --secret-id "paulbot/$ENV/db-password" \
-  --secret-string "$(openssl rand -base64 32)" \
-  --profile $PROFILE
+# SSH into the instance
+$(terraform output -raw ssh_command)
 
-# NextAuth secret
-aws secretsmanager put-secret-value \
-  --secret-id "paulbot/$ENV/nextauth-secret" \
-  --secret-string "$(openssl rand -base64 32)" \
-  --profile $PROFILE
+# Fill in secrets
+nano ~/paulbot/.env
 
-# Encryption key (32-byte hex for AES-256)
-aws secretsmanager put-secret-value \
-  --secret-id "paulbot/$ENV/encryption-key" \
-  --secret-string "$(openssl rand -hex 32)" \
-  --profile $PROFILE
+# Start the stack
+sudo systemctl start paulbot
 
-# GitHub App credentials
-aws secretsmanager put-secret-value \
-  --secret-id "paulbot/$ENV/github-app-id" \
-  --secret-string "YOUR_GITHUB_APP_ID" \
-  --profile $PROFILE
-
-aws secretsmanager put-secret-value \
-  --secret-id "paulbot/$ENV/github-app-private-key" \
-  --secret-string "$(cat path/to/your-app.private-key.pem)" \
-  --profile $PROFILE
-
-aws secretsmanager put-secret-value \
-  --secret-id "paulbot/$ENV/github-app-webhook-secret" \
-  --secret-string "YOUR_WEBHOOK_SECRET" \
-  --profile $PROFILE
-
-# Telegram Bot token
-aws secretsmanager put-secret-value \
-  --secret-id "paulbot/$ENV/telegram-bot-token" \
-  --secret-string "YOUR_TELEGRAM_BOT_TOKEN" \
-  --profile $PROFILE
+# Verify
+docker compose -f ~/paulbot/docker-compose.yml ps
+docker compose -f ~/paulbot/docker-compose.yml logs -f
 ```
 
 ## DNS setup
 
-If you set `route53_zone_id`, DNS records are created automatically.
+Point your domain's **A record** to the Elastic IP:
 
-If using an external DNS provider (Cloudflare, etc.):
 ```bash
-# Get the ALB DNS name after apply
-terraform output alb_dns_name
-# Create a CNAME record: paulbot.yourdomain.com → <alb-dns-name>
+terraform output elastic_ip
+# → 1.2.3.4
+# Create A record: paulbot.yourdomain.com → 1.2.3.4
 ```
 
-**ACM cert validation**: if Route53 is not managed here, you must manually add the
-DNS validation records shown in `aws_acm_certificate.domain_validation_options` before
-the certificate can be issued.
+Caddy handles TLS automatically via Let's Encrypt — no ACM needed.
 
 ## GitHub Actions setup
 
@@ -141,62 +124,54 @@ After apply, set these secrets in your GitHub repository:
 
 | Secret | Value |
 |--------|-------|
-| `AWS_ROLE_TO_ASSUME` | `terraform output github_actions_role_arn` |
-| `ECR_REGISTRY` | `terraform output ecr_repository_url \| cut -d/ -f1` |
+| `AWS_ROLE_TO_ASSUME` | `terraform output -raw github_actions_role_arn` |
+| `ECR_REGISTRY` | `terraform output -raw ecr_repository_url \| cut -d/ -f1` |
 
-The OIDC provider and IAM role are created by Terraform — no AWS access keys needed.
-
-## Prisma migrations
-
-The web container runs `node server.js` directly. To run migrations before deployment,
-wrap the CMD in your Dockerfile or create a separate one-off ECS task:
+## Subsequent deploys
 
 ```bash
-# Run migrations as a one-off ECS task (after first apply, before first deploy)
-aws ecs run-task \
-  --cluster paulbot-prod \
-  --task-definition paulbot-prod-web \
-  --launch-type FARGATE \
-  --network-configuration "awsvpcConfiguration={subnets=[$(terraform output -raw private_subnet_ids | tr -d '[]"' | tr ',' ' ')],securityGroups=[...]}" \
-  --overrides '{"containerOverrides":[{"name":"web","command":["npx","prisma","migrate","deploy"]}]}' \
-  --profile paulbot
+# From your local machine (reads host + ECR URL from terraform output)
+./scripts/deploy.sh
+
+# Or with a specific image tag
+./scripts/deploy.sh 1.2.3.4 sha-abc123
 ```
 
-## ECS Exec (debugging)
+## Debugging
 
-SSH into a running container:
 ```bash
-aws ecs execute-command \
-  --cluster paulbot-prod \
-  --task <task-id> \
-  --container web \
-  --command "/bin/sh" \
-  --interactive \
-  --profile paulbot
+# SSH
+ssh ubuntu@$(cd terraform && terraform output -raw elastic_ip)
+
+# Container logs
+docker compose -f ~/paulbot/docker-compose.yml logs -f paulbot
+docker compose -f ~/paulbot/docker-compose.yml logs -f paulbot-worker
+
+# Restart a service
+docker compose -f ~/paulbot/docker-compose.yml restart paulbot
 ```
 
-## Module overview
+## If the instance is replaced
 
-| Module | What it provisions |
-|--------|--------------------|
-| `networking` | VPC, public/private subnets, IGW, NAT gateway(s), 4 security groups |
-| `ecr` | ECR repository + lifecycle policy (keep 10 tagged, expire untagged after 7d) |
-| `alb` | ALB, target group, HTTP→HTTPS redirect, HTTPS listener, ACM cert, optional Route53 |
-| `data` | RDS PostgreSQL 16, ElastiCache Redis 7, subnet groups |
-| `ecs` | ECS cluster, two task definitions (web + worker), two services, IAM roles |
+The EBS data volume has `prevent_destroy = true` and `delete_on_termination = false`. If you need to replace the EC2 instance:
 
-## Cost estimate (prod, us-east-1, ~2025 pricing)
+1. Note the data volume ID: `terraform output data_volume_id`
+2. Destroy and recreate the instance (not the volume)
+3. Reattach the volume — Terraform handles this via `aws_volume_attachment`
+
+Your database and workspaces are safe.
+
+## Cost estimate (us-east-1, 2025 pricing)
 
 | Resource | Monthly est. |
 |----------|-------------|
-| ECS Fargate web (0.5 vCPU, 1 GB, ~720h) | ~$15 |
-| ECS Fargate worker (1 vCPU, 2 GB, ~720h) | ~$30 |
-| RDS db.t3.micro | ~$15 |
-| ElastiCache cache.t3.micro | ~$13 |
-| ALB | ~$16 |
-| NAT gateway (2x) | ~$65 |
-| S3 + ECR storage | ~$2 |
-| **Total** | **~$156/mo** |
+| EC2 t3.small | ~$15 |
+| EBS 20 GB gp3 (data) | ~$1.60 |
+| EBS 20 GB gp3 (root) | ~$1.60 |
+| Elastic IP (attached) | free |
+| ECR storage | ~$0.50 |
+| EventBridge Scheduler | ~$0 |
+| **Total** | **~$19/mo** |
 
-> To save ~$65/mo: set `single_nat_gateway = true` (loses NAT HA).
-> For dev: single AZ + single NAT brings it to ~$70/mo.
+> With the EventBridge scheduler (stop at 22:30, start at 07:00 Mon–Sat):
+> ~65% uptime → **~$12/mo** effective cost.
