@@ -42,7 +42,7 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends \
 
 **Fix:** Add to the EC2 `.env` (or docker-compose environment):
 ```
-CLAUDE_ALLOW_ROOT=1
+CLAUDE_CODE_ALLOW_ROOT_EXECUTION=1
 ```
 
 ---
