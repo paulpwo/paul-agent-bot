@@ -88,6 +88,10 @@ RUN addgroup --system --gid 1001 nodejs \
 # The worker spawns claude as uid 1001 to satisfy --dangerously-skip-permissions; HOME stays /root.
 RUN chmod 755 /root
 
+# Trust all directories for git — workspaces may be owned by root but accessed by uid 1001.
+# Without this, git refuses to operate in repos owned by a different user.
+RUN git config --system --add safe.directory '*'
+
 # Copy the standalone Next.js build
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
