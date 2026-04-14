@@ -126,6 +126,21 @@ https://agente.paulosinga.net/api/auth/callback/github
 
 ---
 
+## 10. `fatal: detected dubious ownership` in workspace repos
+
+**Symptom:** Tasks fail with `git pull --ff-only` error: `fatal: detected dubious ownership in repository at '/data/workspaces/...'`.
+
+**Cause:** The worker spawns claude as uid 1001 (nextjs) to bypass the root restriction (see #3). Repos cloned by root (uid 0) are rejected by git's ownership check when accessed by a different uid.
+
+**Fix (built into the image):** `git config --system --add safe.directory '*'` in the Dockerfile runtime stage. This sets the trust globally for all users in the container.
+
+If a stale workspace was cloned before this fix, chown it manually:
+```bash
+docker exec paulagentbot-paulagentbot-worker-1 chown -R 1001:1001 /data/workspaces/
+```
+
+---
+
 ## 9. EC2 `.env` variables lost after redeploy
 
 **Symptom:** After a GitHub Actions deploy, manually added env vars disappear.
