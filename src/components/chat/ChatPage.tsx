@@ -96,6 +96,18 @@ export function ChatPage({ initialSession, initialMessages, recentSessions, repo
     inputRef.current?.focus()
   }, [])
 
+  // Auto-reconnect stream when loading a session that has a running task
+  useEffect(() => {
+    const runningMsg = (initialMessages ?? []).find(
+      (m) => m.role === "agent" && m.status === "streaming"
+    )
+    if (runningMsg) {
+      setIsStreaming(true)
+      streamTask(runningMsg.id)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const deleteSession = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
     await fetch(`/api/chat/sessions/${id}`, { method: "DELETE" })
@@ -206,7 +218,9 @@ export function ChatPage({ initialSession, initialMessages, recentSessions, repo
 
       if (!sessionId) {
         setSessionId(data.sessionId)
-        router.replace(`/dashboard/chat/${data.sessionId}`)
+        // Use history.replaceState instead of router.replace to avoid
+        // unmounting this component (and killing the active EventSource stream)
+        window.history.replaceState(null, "", `/dashboard/chat/${data.sessionId}`)
       }
 
       setMessages((prev) =>

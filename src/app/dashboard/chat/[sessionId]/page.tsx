@@ -29,7 +29,7 @@ function taskToMessages(task: Task): Message[] {
           ? "error"
           : task.status === "CANCELLED"
             ? "cancelled"
-            : "done",
+            : "streaming", // RUNNING or QUEUED → reconnect stream on mount
     toolCalls: [],
   }
   return [user, agent]
