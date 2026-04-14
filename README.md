@@ -21,6 +21,18 @@ Everything is managed through a modern web dashboard with real-time task trackin
 
 ---
 
+## Screenshots
+
+| Dashboard | Tasks |
+|-----------|-------|
+| ![Dashboard](https://raw.githubusercontent.com/paulpwo/paul-agent-bot/main/public/screenshots/dashboard.png) | ![Tasks](https://raw.githubusercontent.com/paulpwo/paul-agent-bot/main/public/screenshots/tasks.png) |
+
+| Chat | Settings |
+|------|----------|
+| ![Chat](https://raw.githubusercontent.com/paulpwo/paul-agent-bot/main/public/screenshots/chat.png) | ![Settings](https://raw.githubusercontent.com/paulpwo/paul-agent-bot/main/public/screenshots/settings.png) |
+
+---
+
 ## Architecture
 
 ```
