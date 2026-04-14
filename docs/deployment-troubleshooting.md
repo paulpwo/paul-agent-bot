@@ -38,12 +38,30 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends \
 
 **Symptom:** Tasks fail in ~2 seconds with this error in the task detail.
 
-**Cause:** The worker container runs as root, and Claude Code refuses `--dangerously-skip-permissions` when the process UID is 0.
+**Cause:** The worker container runs as root (`UID 0`), and Claude Code refuses `--dangerously-skip-permissions` when the spawning process UID is 0.
 
-**Fix:** Add to the EC2 `.env` (or docker-compose environment):
+**Fix (two parts):**
+
+**Part A — Drop to UID 1001 when spawning claude** (`src/lib/agent/runner.ts`):
+```ts
+const isRoot = process.getuid?.() === 0
+const child = spawn("claude", args, {
+  cwd: opts.workspacePath,
+  stdio: ["ignore", "pipe", "pipe"],
+  env: { ...process.env, HOME: "/root", ...(opts.extraEnv ?? {}) },
+  ...(isRoot ? { uid: 1001, gid: 1001 } : {}),  // drop from root
+})
 ```
-CLAUDE_CODE_ALLOW_ROOT_EXECUTION=1
+`HOME` stays `/root` so the bind-mounted `~/.claude` credentials are found. The `uid`/`gid` options on `spawn` only affect the child process — the worker itself stays root.
+
+**Part B — Fix filesystem permissions** (run once inside the container as root, or add to `user_data.sh`):
+```bash
+docker exec <worker-container> bash -c \
+  "chmod 755 /root && chmod -R o+rX /root/.claude && chown -R 1001:1001 /data/workspaces"
 ```
+- `chmod 755 /root` — lets uid 1001 enter the HOME directory to find `.claude`
+- `chmod -R o+rX /root/.claude` — lets uid 1001 read credentials inside `.claude`
+- `chown -R 1001:1001 /data/workspaces` — lets uid 1001 create workspace directories
 
 ---
 
