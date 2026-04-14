@@ -33,6 +33,11 @@ export async function ensureWorkspace(opts: CloneOrPullOptions): Promise<string>
   if (!existsSync(workspacePath)) {
     await exec("git", ["clone", opts.cloneUrl, workspacePath])
   } else {
+    // Always return to the default branch before pulling.
+    // If a previous task left the workspace on a feature branch with no upstream,
+    // `git pull --ff-only` would fail with "no tracking information".
+    const defaultBranch = opts.defaultBranch ?? "main"
+    await exec("git", ["checkout", defaultBranch], { cwd: workspacePath })
     await exec("git", ["pull", "--ff-only"], { cwd: workspacePath })
   }
 
