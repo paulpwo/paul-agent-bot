@@ -1,0 +1,194 @@
+@import "tailwindcss";
+
+/* ── Design tokens ─────────────────────────────────────────── */
+
+/* Light (default) */
+:root {
+  --surface-base:    #eef0f6;   /* soft blue-gray page background */
+  --surface-raised:  #ffffff;   /* white cards float above the base */
+  --surface-overlay: #f8f9fc;   /* very light fill for inputs, code blocks, nested panels */
+  --border-default:  #dde0ea;   /* slightly more visible borders */
+  --border-subtle:   #e8eaf0;   /* dividers and subtle separators */
+  --text-primary:    #111827;   /* near-black, maximum contrast */
+  --text-secondary:  #374151;   /* dark gray, strong readable secondary */
+  --text-muted:      #6b7280;   /* medium gray, still meets WCAG AA on white */
+
+  /* Glass tokens — light mode */
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-blur: 20px;
+  --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.06);
+  --glass-glow: 0 0 0 2px rgba(99, 102, 241, 0.3);
+  --glass-gradient-start: rgba(99, 102, 241, 0.08);
+  --glass-gradient-end: rgba(139, 92, 246, 0.06);
+}
+
+/* Dark */
+.dark {
+  --surface-base:    #09090b;   /* zinc-950 */
+  --surface-raised:  #111118;   /* cool-dark — distinct card layer above base */
+  --surface-overlay: #1c1c26;   /* cool-dark — popovers/modals above raised */
+  --border-default:  #2a2a36;   /* visible separator on raised surfaces */
+  --border-subtle:   #3a3a48;   /* slightly lighter border for nested contexts */
+  --text-primary:    #f4f4f5;   /* zinc-100  — 17.7:1 on base */
+  --text-secondary:  #a1a1aa;   /* zinc-400  — 7.8:1 on base, 7.3:1 on raised */
+  --text-muted:      #71717a;   /* zinc-500  — 4.1:1 on base, 3.9:1 on raised (was zinc-600 2.3:1, WCAG fail) */
+
+  /* Glass tokens — dark mode */
+  --glass-bg: rgba(255, 255, 255, 0.07);
+  --glass-border: rgba(255, 255, 255, 0.13);
+  --glass-blur: 20px;
+  --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.40), 0 1px 4px rgba(0, 0, 0, 0.24);
+  --glass-glow: 0 0 0 2px rgba(99, 102, 241, 0.5);
+  --glass-gradient-start: rgba(99, 102, 241, 0.40);
+  --glass-gradient-end: rgba(139, 92, 246, 0.28);
+}
+
+@theme inline {
+  --color-background: var(--surface-base);
+  --color-foreground: var(--text-primary);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* Semantic surface colors */
+  --color-surface-base:    var(--surface-base);
+  --color-surface-raised:  var(--surface-raised);
+  --color-surface-overlay: var(--surface-overlay);
+
+  /* Semantic border colors */
+  --color-border-default: var(--border-default);
+  --color-border-subtle:  var(--border-subtle);
+
+  /* Semantic text colors */
+  --color-text-primary:   var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted:     var(--text-muted);
+}
+
+@layer components {
+  .glass-card {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+    @supports (backdrop-filter: blur(1px)) {
+      backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+    }
+    animation: glass-enter 200ms ease-out both;
+    transition: box-shadow 200ms ease;
+  }
+  .glass-card:hover {
+    box-shadow: var(--glass-shadow), var(--glass-glow);
+  }
+
+  .glass-sidebar {
+    background: var(--glass-bg);
+    border-right: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+    @supports (backdrop-filter: blur(1px)) {
+      backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+    }
+  }
+
+  .glass-overlay {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+    @supports (backdrop-filter: blur(1px)) {
+      backdrop-filter: blur(calc(var(--glass-blur) * 1.5)) saturate(1.6);
+      -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 1.5)) saturate(1.6);
+    }
+  }
+}
+
+@keyframes glass-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-card {
+    animation: none;
+  }
+}
+
+/* Inner card for animated-border — opaque so gradient doesn't bleed through */
+.glass-card-solid {
+  position: relative;
+  z-index: 10;
+  background: var(--surface-raised);
+  @supports (backdrop-filter: blur(1px)) {
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  }
+}
+
+/* ── Animated AI border ─────────────────────────────────────── */
+.animated-border {
+  position: relative;
+  padding: 2.5px;
+  border-radius: 0.75rem; /* rounded-xl */
+  overflow: hidden;
+}
+
+.animated-border::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 180%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  background: conic-gradient(
+    from 0deg,
+    #6366f1,
+    #818cf8,
+    #a78bfa,
+    #c084fc,
+    #e879f9,
+    #f472b6,
+    #818cf8,
+    #38bdf8,
+    #6366f1
+  );
+  animation: spin-border 3s linear infinite;
+  z-index: 0;
+}
+
+@keyframes spin-border {
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animated-border::before {
+    animation: none;
+  }
+}
+
+html {
+  background: var(--surface-base);
+}
+
+body {
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+/* Thin scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: #52525b; }
+.dark ::-webkit-scrollbar-thumb { background: #3f3f46; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #52525b; }
+
+/* Selection */
+::selection { background-color: rgb(79 70 229 / 0.35); color: #fff; }

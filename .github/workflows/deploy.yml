@@ -1,0 +1,130 @@
+name: Deploy to ECS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: "prod"
+        type: choice
+        options: [prod, dev]
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}      # e.g. 123456789.dkr.ecr.us-east-1.amazonaws.com
+  ECR_REPOSITORY: paulbot
+  ECS_CLUSTER: paulbot-prod                       # matches terraform project-environment
+  ECS_SERVICE_WEB: paulbot-prod-web
+  ECS_SERVICE_WORKER: paulbot-prod-worker
+
+jobs:
+  deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # Required for OIDC authentication
+      contents: read
+
+    steps:
+      # ── Checkout ──────────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── AWS credentials via OIDC (no long-lived access keys) ─────────────────
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+          # role-session-name is optional but useful for CloudTrail
+          role-session-name: GitHubActions-${{ github.run_id }}
+
+      # ── Log in to ECR ─────────────────────────────────────────────────────────
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # ── Build & push Docker image ─────────────────────────────────────────────
+      - name: Build, tag, and push image to ECR
+        id: build-image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          # Tag with both the commit SHA (immutable) and latest (for convenience)
+          IMAGE_TAG: sha-${{ github.sha }}
+        run: |
+          docker build \
+            --cache-from "$REGISTRY/$ECR_REPOSITORY:latest" \
+            --tag "$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
+            --tag "$REGISTRY/$ECR_REPOSITORY:latest" \
+            .
+          docker push "$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          docker push "$REGISTRY/$ECR_REPOSITORY:latest"
+          echo "image=$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+      # ── Update web task definition ────────────────────────────────────────────
+      - name: Get current web task definition
+        id: get-web-taskdef
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition paulbot-prod-web \
+            --query taskDefinition \
+            --output json > /tmp/web-taskdef.json
+          echo "taskdef-file=/tmp/web-taskdef.json" >> "$GITHUB_OUTPUT"
+
+      - name: Update web task definition with new image
+        id: update-web-taskdef
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: /tmp/web-taskdef.json
+          container-name: web
+          image: ${{ steps.build-image.outputs.image }}
+
+      # ── Update worker task definition ─────────────────────────────────────────
+      - name: Get current worker task definition
+        id: get-worker-taskdef
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition paulbot-prod-worker \
+            --query taskDefinition \
+            --output json > /tmp/worker-taskdef.json
+          echo "taskdef-file=/tmp/worker-taskdef.json" >> "$GITHUB_OUTPUT"
+
+      - name: Update worker task definition with new image
+        id: update-worker-taskdef
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: /tmp/worker-taskdef.json
+          container-name: worker
+          image: ${{ steps.build-image.outputs.image }}
+
+      # ── Deploy web service ────────────────────────────────────────────────────
+      - name: Deploy web service
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.update-web-taskdef.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE_WEB }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
+          # Circuit breaker will auto-rollback on failure (configured in Terraform)
+
+      # ── Deploy worker service ─────────────────────────────────────────────────
+      - name: Deploy worker service
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.update-worker-taskdef.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE_WORKER }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
+
+      # ── Summary ───────────────────────────────────────────────────────────────
+      - name: Deployment summary
+        run: |
+          echo "## Deployment Complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Service | Image |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| paulbot-web | \`${{ steps.build-image.outputs.image }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| paulbot-worker | \`${{ steps.build-image.outputs.image }}\` |" >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,93 @@
+services:
+  # ── Redis ─────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes --loglevel warning
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  # ── PaulBot web (Next.js dashboard + webhook receivers) ───────────────────────
+  paulbot:
+    image: ${PAULBOT_IMAGE}
+    restart: unless-stopped
+    command: ["sh", "-c", "npx prisma migrate deploy && node server.js"]
+    env_file: .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      # ~/.claude mounted read-only — provides Claude Code auth token
+      - type: bind
+        source: ${CLAUDE_AUTH_DIR:-/home/ubuntu/.claude}
+        target: /root/.claude
+        read_only: true
+      # Persistent workspace for cloned repos (on EBS)
+      - type: bind
+        source: /data/workspaces
+        target: /data/workspaces
+      # SQLite database file (on EBS — survives container recreation)
+      - type: bind
+        source: /data/paulbot.db
+        target: /data/paulbot.db
+    environment:
+      DATABASE_URL: file:/data/paulbot.db
+      REDIS_URL: redis://redis:6379
+      WORKSPACE_BASE: /data/workspaces
+    ports:
+      # Only bind to localhost — Caddy is the public-facing proxy
+      - "127.0.0.1:3000:3000"
+
+  # ── PaulBot worker (BullMQ agent runner) ─────────────────────────────────────
+  paulbot-worker:
+    image: ${PAULBOT_IMAGE}
+    restart: unless-stopped
+    command: ["node", "workers-entrypoint.js"]
+    env_file: .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      # Same mounts as paulbot — worker needs Claude auth + workspace access
+      - type: bind
+        source: ${CLAUDE_AUTH_DIR:-/home/ubuntu/.claude}
+        target: /root/.claude
+        read_only: true
+      - type: bind
+        source: /data/workspaces
+        target: /data/workspaces
+      - type: bind
+        source: /data/paulbot.db
+        target: /data/paulbot.db
+    environment:
+      DATABASE_URL: file:/data/paulbot.db
+      REDIS_URL: redis://redis:6379
+      WORKSPACE_BASE: /data/workspaces
+    # No port mapping — worker is internal only
+
+  # ── Caddy (TLS + reverse proxy) ───────────────────────────────────────────────
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # TLS certs on EBS — survives container recreation, avoids Let's Encrypt rate limits
+      - /data/caddy:/data
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3 (QUIC)
+    environment:
+      PAULBOT_DOMAIN: ${PAULBOT_DOMAIN}
+    depends_on:
+      - paulbot
+
+# ── Named volumes ──────────────────────────────────────────────────────────────
+volumes:
+  redis_data:

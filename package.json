@@ -1,0 +1,67 @@
+{
+  "name": "paul-agent-bot",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "author": "Paul Osinga",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/paulpwo/paul-agent-bot"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "postinstall": "prisma generate",
+    "worker": "tsx workers-entrypoint.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-code": "^2.1.105",
+    "@grammyjs/types": "^3.26.0",
+    "@octokit/app": "^16.1.2",
+    "@octokit/auth-app": "^8.2.0",
+    "@octokit/rest": "^22.0.1",
+    "@prisma/adapter-better-sqlite3": "^7.7.0",
+    "@prisma/adapter-pg": "^7.7.0",
+    "@prisma/client": "^7.7.0",
+    "@sendgrid/mail": "^8.1.6",
+    "@slack/web-api": "^7.15.1",
+    "@types/pg": "^8.20.0",
+    "better-sqlite3": "^12.9.0",
+    "bullmq": "^5.73.5",
+    "busboy": "^1.6.0",
+    "cron-parser": "^5.5.0",
+    "grammy": "^1.42.0",
+    "ioredis": "^5.10.1",
+    "next": "16.2.3",
+    "next-auth": "^4.24.13",
+    "next-themes": "^0.4.6",
+    "node-cron": "^4.2.1",
+    "pg": "^8.20.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "tsx": "^4.21.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/busboy": "^1.5.4",
+    "@types/node": "^20",
+    "@types/node-cron": "^3.0.11",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^4.1.4",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.3",
+    "prisma": "^7.7.0",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "vitest": "^4.1.4"
+  }
+}

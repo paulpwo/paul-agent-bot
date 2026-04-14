@@ -1,0 +1,113 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// NOTE: Change provider to "postgresql" for production deployments.
+// For local development, SQLite is used (no Docker required).
+// Connection URL is set in prisma.config.ts (Prisma 7 requirement).
+// Run: pnpm dlx prisma migrate dev --name init
+datasource db {
+  provider = "sqlite"
+}
+
+enum TaskStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model User {
+  id          String    @id @default(cuid())
+  githubLogin String    @unique
+  role        String    @default("user") // "admin" | "user"
+  allowlisted Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  sessions    Session[]
+  tasks       Task[]
+}
+
+model Session {
+  id             String   @id @default(cuid())
+  channel        String   // "telegram" | "slack" | "github" | "email" | "dashboard"
+  channelId      String   // chat_id, workspace_id, repo full name, etc.
+  threadId       String   // topic_id, thread_ts, issue_number, email_thread
+  repo           String   // "owner/name"
+  agentSessionId String?  // claude-code session id for continuity
+  userId         String?
+  user           User?    @relation(fields: [userId], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  tasks          Task[]
+
+  @@unique([channel, channelId, threadId, repo])
+}
+
+model Task {
+  id           String     @id @default(cuid())
+  sessionId    String
+  session      Session    @relation(fields: [sessionId], references: [id])
+  channel      String
+  channelId    String
+  threadId     String
+  repo         String
+  prompt       String
+  status       TaskStatus @default(QUEUED)
+  modelUsed    String?
+  result       String?
+  errorMessage String?
+  durationMs   Int?
+  bullJobId    String?    // BullMQ job ID for cancellation
+  userId       String?
+  user         User?      @relation(fields: [userId], references: [id])
+  createdAt    DateTime   @default(now())
+  startedAt    DateTime?
+  completedAt  DateTime?
+}
+
+model Repo {
+  id                String   @id @default(cuid())
+  owner             String
+  name              String
+  fullName          String   @unique // "owner/name"
+  enabled           Boolean  @default(true)
+  workspacePath     String
+  queueName         String   @unique // "repo:owner:name"
+  defaultBranch     String   @default("main")
+  protectedBranches String   @default("main,master") // comma-separated; SQLite doesn't support arrays
+  githubInstallId   Int?     // GitHub App installation ID for token refresh
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([owner, name])
+}
+
+model CronJob {
+  id          String    @id @default(cuid())
+  name        String
+  channel     String
+  channelId   String
+  threadId    String
+  repo        String
+  prompt      String
+  schedule    String    // cron expression
+  naturalText String    // original user text
+  enabled     Boolean   @default(true)
+  lastRun     DateTime?
+  nextRun     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Settings {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String   // AES-256-GCM encrypted for sensitive keys
+  encrypted Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+}
