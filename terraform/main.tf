@@ -12,15 +12,7 @@ terraform {
     }
   }
 
-  # Remote state — create the S3 bucket + DynamoDB table before running terraform init
-  # See: https://developer.hashicorp.com/terraform/language/settings/backends/s3
-  backend "s3" {
-    bucket         = "paulagentbot-terraform-state"
-    key            = "paulagentbot/terraform.tfstate"
-    region         = "us-east-1"
-    dynamodb_table = "paulagentbot-terraform-locks"
-    encrypt        = true
-  }
+  # State is stored locally in terraform.tfstate — keep it out of git (.gitignore covers it)
 }
 
 provider "aws" {

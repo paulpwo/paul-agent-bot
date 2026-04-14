@@ -35,35 +35,7 @@ Data on EBS volume (/data):
    aws configure --profile paulagentbot
    ```
 
-2. **S3 + DynamoDB for Terraform state** — create once before `terraform init`:
-   ```bash
-   PROFILE=paulagentbot
-   REGION=us-east-1
-
-   aws s3api create-bucket \
-     --bucket paulagentbot-terraform-state \
-     --region $REGION --profile $PROFILE
-
-   aws s3api put-bucket-versioning \
-     --bucket paulagentbot-terraform-state \
-     --versioning-configuration Status=Enabled \
-     --profile $PROFILE
-
-   aws s3api put-bucket-encryption \
-     --bucket paulagentbot-terraform-state \
-     --server-side-encryption-configuration \
-       '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}' \
-     --profile $PROFILE
-
-   aws dynamodb create-table \
-     --table-name paulagentbot-terraform-locks \
-     --attribute-definitions AttributeName=LockID,AttributeType=S \
-     --key-schema AttributeName=LockID,KeyType=HASH \
-     --billing-mode PAY_PER_REQUEST \
-     --region $REGION --profile $PROFILE
-   ```
-
-3. **SSH key pair** — the public key is uploaded to EC2:
+2. **SSH key pair** — the public key is uploaded to EC2:
    ```bash
    ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519
    ```
