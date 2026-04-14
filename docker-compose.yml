@@ -23,11 +23,6 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      # ~/.claude mounted read-only — provides Claude Code auth token
-      - type: bind
-        source: ${CLAUDE_AUTH_DIR:-/home/ubuntu/.claude}
-        target: /root/.claude
-        read_only: true
       # Persistent workspace for cloned repos (on EBS)
       - type: bind
         source: /data/workspaces
@@ -54,11 +49,6 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      # Same mounts as paulagentbot — worker needs Claude auth + workspace access
-      - type: bind
-        source: ${CLAUDE_AUTH_DIR:-/home/ubuntu/.claude}
-        target: /root/.claude
-        read_only: true
       - type: bind
         source: /data/workspaces
         target: /data/workspaces

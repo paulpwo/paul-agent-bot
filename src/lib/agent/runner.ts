@@ -47,12 +47,13 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
     args.push(opts.prompt)
 
     // Drop from root to uid 1001 (nextjs) so claude --dangerously-skip-permissions works.
-    // Only applies when running as root (EC2/Docker). HOME stays /root so .claude auth is found.
+    // HOME → /tmp so claude can write its working files (settings, session state).
+    // Auth is via CLAUDE_CODE_OAUTH_TOKEN env var — no .claude directory needed.
     const isRoot = process.getuid?.() === 0
     const child = spawn("claude", args, {
       cwd: opts.workspacePath,
       stdio: ["ignore", "pipe", "pipe"],  // stdin → /dev/null, capture stdout/stderr
-      env: { ...process.env, HOME: "/root", ...(opts.extraEnv ?? {}) },
+      env: { ...process.env, HOME: "/tmp", ...(opts.extraEnv ?? {}) },
       ...(isRoot ? { uid: 1001, gid: 1001 } : {}),
     })
 
