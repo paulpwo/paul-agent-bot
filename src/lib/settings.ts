@@ -52,9 +52,10 @@ export const SETTINGS_KEYS = {
   GITHUB_RATE_COMMENTS_PER_MINUTE: "github.rateLimitCommentsPerMinute",
   GITHUB_RATE_TASKS_PER_DAY: "github.rateLimitTasksPerDay",
   // Notifications
-  NOTIF_TELEGRAM_ENABLED: "notifications.telegramEnabled",
-  NOTIF_SLACK_ENABLED:    "notifications.slackEnabled",
-  NOTIF_TELEGRAM_CHAT_ID: "notifications.telegramChatId",
-  NOTIF_SLACK_CHANNEL_ID: "notifications.slackChannelId",
-  NOTIF_EVENTS:           "notifications.events",
+  NOTIF_TELEGRAM_ENABLED:   "notifications.telegramEnabled",
+  NOTIF_SLACK_ENABLED:      "notifications.slackEnabled",
+  NOTIF_TELEGRAM_BOT_TOKEN: "notifications.telegramBotToken",
+  NOTIF_TELEGRAM_CHAT_ID:   "notifications.telegramChatId",
+  NOTIF_SLACK_CHANNEL_ID:   "notifications.slackChannelId",
+  NOTIF_EVENTS:             "notifications.events",
 } as const

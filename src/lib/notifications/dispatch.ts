@@ -42,8 +42,12 @@ async function dispatchTelegram(event: NotificationEvent): Promise<void> {
     const chatId = await getSetting(SETTINGS_KEYS.NOTIF_TELEGRAM_CHAT_ID)
     if (!chatId) return
 
-    // Use direct HTTP call — works from any process (Next.js server, workers, etc.)
-    const token = (await getSetting(SETTINGS_KEYS.TELEGRAM_BOT_TOKEN)) ?? process.env.TELEGRAM_BOT_TOKEN
+    // Use the dedicated notifications token (separate from the interactive channel bot).
+    // Falls back to the channel bot token for backwards compatibility.
+    const token =
+      (await getSetting(SETTINGS_KEYS.NOTIF_TELEGRAM_BOT_TOKEN)) ??
+      (await getSetting(SETTINGS_KEYS.TELEGRAM_BOT_TOKEN)) ??
+      process.env.TELEGRAM_BOT_TOKEN
     if (!token) return
 
     const text = formatTelegramMessage(event)

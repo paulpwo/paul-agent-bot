@@ -7,6 +7,7 @@ const SENSITIVE_KEYS = new Set<string>([
   SETTINGS_KEYS.GITHUB_APP_WEBHOOK_SECRET,
   SETTINGS_KEYS.GITHUB_OAUTH_CLIENT_SECRET,
   SETTINGS_KEYS.TELEGRAM_BOT_TOKEN,
+  SETTINGS_KEYS.NOTIF_TELEGRAM_BOT_TOKEN,
   SETTINGS_KEYS.SLACK_BOT_TOKEN,
 ])
 
@@ -118,6 +119,13 @@ const ALL_SETTINGS_META: Array<{
     placeholder: "100",
   },
   // Section 7 — Notifications
+  {
+    key: SETTINGS_KEYS.NOTIF_TELEGRAM_BOT_TOKEN,
+    label: "Notification Bot Token",
+    section: "notifications",
+    masked: true,
+    placeholder: "123456:ABC-... (must be different from Telegram channel bot)",
+  },
   {
     key: SETTINGS_KEYS.NOTIF_TELEGRAM_ENABLED,
     label: "Telegram notifications",
@@ -239,6 +247,24 @@ export async function POST(req: NextRequest) {
 
   if (meta.disabled) {
     return NextResponse.json({ error: "This setting is not yet available" }, { status: 403 })
+  }
+
+  // Reject token collision: notifications bot and channel bot must be different
+  if (
+    key === SETTINGS_KEYS.NOTIF_TELEGRAM_BOT_TOKEN ||
+    key === SETTINGS_KEYS.TELEGRAM_BOT_TOKEN
+  ) {
+    const otherKey =
+      key === SETTINGS_KEYS.NOTIF_TELEGRAM_BOT_TOKEN
+        ? SETTINGS_KEYS.TELEGRAM_BOT_TOKEN
+        : SETTINGS_KEYS.NOTIF_TELEGRAM_BOT_TOKEN
+    const otherToken = await getSetting(otherKey).catch(() => null)
+    if (otherToken && otherToken === value) {
+      return NextResponse.json(
+        { error: "Notification bot and channel bot must use different tokens — two bots polling the same token causes a 409 conflict." },
+        { status: 400 }
+      )
+    }
   }
 
   // Special handling for allowlist: accept comma-separated and convert to JSON array

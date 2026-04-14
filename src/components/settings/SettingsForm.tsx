@@ -223,7 +223,7 @@ function SettingField({
 }
 
 function getDependsOnKey(key: string): string | undefined {
-  if (key === "notifications.telegramEnabled") return "telegram.botToken"
+  if (key === "notifications.telegramEnabled") return "notifications.telegramBotToken"
   if (key === "notifications.slackEnabled") return "slack.botToken"
   return undefined
 }
