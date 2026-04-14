@@ -3,6 +3,7 @@ import { requireAuth } from "@/lib/auth/session"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import TaskStream from "./TaskStream"
+import DeleteTaskButton from "./DeleteTaskButton"
 
 const STATUS_COLORS: Record<string, string> = {
   QUEUED:    "bg-zinc-400 text-white dark:bg-zinc-600 dark:text-zinc-100",
@@ -102,6 +103,13 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
           )}
         </div>
       </div>
+
+      {/* Delete action (terminal tasks only) */}
+      {isTerminal && (
+        <div className="mb-4">
+          <DeleteTaskButton taskId={task.id} />
+        </div>
+      )}
 
       {/* Continue in Chat */}
       {task.session && (

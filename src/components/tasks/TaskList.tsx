@@ -31,10 +31,13 @@ const STATUS_COLORS: Record<string, string> = {
   CANCELLED: "bg-zinc-300 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-400",
 }
 
+const TERMINAL_STATUSES = new Set(["COMPLETED", "FAILED", "CANCELLED"])
+
 export default function TaskList({ initialTasks, repos }: Props) {
   const router = useRouter()
   const [tasks, setTasks] = useState<Task[]>(initialTasks)
   const [showForm, setShowForm] = useState(false)
+  const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set())
 
   function relativeTime(iso: string): string {
     const diff = Date.now() - new Date(iso).getTime()
@@ -44,6 +47,44 @@ export default function TaskList({ initialTasks, repos }: Props) {
     const hrs = Math.floor(mins / 60)
     if (hrs < 24) return `${hrs}h ago`
     return `${Math.floor(hrs / 24)}d ago`
+  }
+
+  function setLoading(id: string, on: boolean) {
+    setLoadingIds((prev) => {
+      const next = new Set(prev)
+      on ? next.add(id) : next.delete(id)
+      return next
+    })
+  }
+
+  async function handleCancel(e: React.MouseEvent, taskId: string) {
+    e.stopPropagation()
+    if (!window.confirm("¿Cancelar esta tarea?")) return
+    setLoading(taskId, true)
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/cancel`, { method: "POST" })
+      if (res.ok) {
+        setTasks((prev) =>
+          prev.map((t) => (t.id === taskId ? { ...t, status: "CANCELLED" } : t))
+        )
+      }
+    } catch { /* ignore */ } finally {
+      setLoading(taskId, false)
+    }
+  }
+
+  async function handleDelete(e: React.MouseEvent, taskId: string) {
+    e.stopPropagation()
+    if (!window.confirm("¿Eliminar esta tarea?")) return
+    setLoading(taskId, true)
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, { method: "DELETE" })
+      if (res.ok) {
+        setTasks((prev) => prev.filter((t) => t.id !== taskId))
+      }
+    } catch { /* ignore */ } finally {
+      setLoading(taskId, false)
+    }
   }
 
   const hasRunning = tasks.some((t) => t.status === "RUNNING")
@@ -100,37 +141,85 @@ export default function TaskList({ initialTasks, repos }: Props) {
         </div>
       ) : (
         <div className="flex flex-col gap-2 mt-4">
-          {tasks.map((task) => (
-            <button
-              key={task.id}
-              onClick={() => router.push(`/dashboard/tasks/${task.id}`)}
-              className="flex items-start gap-3 px-4 py-3.5 rounded-lg glass-card text-left w-full transition-all duration-200 group"
-            >
-              <span
-                className={`text-[11px] px-1.5 py-0.5 rounded font-mono shrink-0 mt-0.5 tabular-nums ${STATUS_COLORS[task.status] ?? "text-text-secondary"}`}
+          {tasks.map((task) => {
+            const isLoading = loadingIds.has(task.id)
+            const isTerminal = TERMINAL_STATUSES.has(task.status)
+            return (
+              <div
+                key={task.id}
+                className="flex items-start gap-3 px-4 py-3.5 rounded-lg glass-card text-left w-full transition-all duration-200 group cursor-pointer"
+                onClick={() => router.push(`/dashboard/tasks/${task.id}`)}
               >
-                {task.status}
-              </span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-text-primary truncate leading-snug">{task.prompt}</p>
-                <p className="text-xs text-text-muted mt-1 flex items-center gap-1.5">
-                  <span className="font-mono">{task.channel}</span>
-                  <span className="text-text-muted">·</span>
-                  <span className="font-mono truncate">{task.repo}#{task.threadId}</span>
-                  <span className="text-text-muted">·</span>
-                  <span>{relativeTime(task.createdAt)}</span>
-                </p>
-              </div>
-              {task.status === "RUNNING" ? (
-                <span className="flex items-center gap-1 text-xs text-blue-700 dark:text-blue-400 shrink-0 mt-0.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-blue-700 dark:bg-blue-400 animate-pulse" />
-                  Live
+                <span
+                  className={`text-[11px] px-1.5 py-0.5 rounded font-mono shrink-0 mt-0.5 tabular-nums ${STATUS_COLORS[task.status] ?? "text-text-secondary"}`}
+                >
+                  {task.status}
                 </span>
-              ) : (
-                <span className="text-xs text-text-muted group-hover:text-text-secondary shrink-0 mt-0.5 transition-colors">→</span>
-              )}
-            </button>
-          ))}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-text-primary truncate leading-snug">{task.prompt}</p>
+                  <p className="text-xs text-text-muted mt-1 flex items-center gap-1.5">
+                    <span className="font-mono">{task.channel}</span>
+                    <span className="text-text-muted">·</span>
+                    <span className="font-mono truncate">{task.repo}#{task.threadId}</span>
+                    <span className="text-text-muted">·</span>
+                    <span>{relativeTime(task.createdAt)}</span>
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0 mt-0.5" onClick={(e) => e.stopPropagation()}>
+                  {task.status === "RUNNING" ? (
+                    <span className="flex items-center gap-1.5 text-xs text-blue-400">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+                      Live
+                    </span>
+                  ) : task.status === "QUEUED" ? (
+                    /* Cancel — hidden until hover */
+                    <button
+                      onClick={(e) => handleCancel(e, task.id)}
+                      disabled={isLoading}
+                      title="Cancelar tarea"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-xs text-text-muted hover:text-amber-400 disabled:opacity-30 px-2 py-1 rounded-md hover:bg-amber-400/10 border border-transparent hover:border-amber-400/20"
+                    >
+                      {isLoading ? (
+                        <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <>
+                          <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                            <line x1="4" y1="4" x2="12" y2="12" /><line x1="12" y1="4" x2="4" y2="12" />
+                          </svg>
+                          <span>Cancelar</span>
+                        </>
+                      )}
+                    </button>
+                  ) : isTerminal ? (
+                    /* Delete — hidden until hover */
+                    <button
+                      onClick={(e) => handleDelete(e, task.id)}
+                      disabled={isLoading}
+                      title="Eliminar tarea"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-xs text-text-muted hover:text-red-400 disabled:opacity-30 px-2 py-1 rounded-md hover:bg-red-400/10 border border-transparent hover:border-red-400/20"
+                    >
+                      {isLoading ? (
+                        <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <>
+                          <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 4 13 4" /><path d="M5 4V3h6v1" /><path d="M4 4l1 9h6l1-9" />
+                          </svg>
+                          <span>Eliminar</span>
+                        </>
+                      )}
+                    </button>
+                  ) : null}
+                  {/* Arrow — visible when not hovering, hidden on hover for actionable tasks */}
+                  {task.status !== "RUNNING" && (
+                    <span className={`text-xs text-text-muted transition-opacity ${(task.status === "QUEUED" || isTerminal) ? "group-hover:opacity-0" : "group-hover:text-text-secondary"}`}>
+                      →
+                    </span>
+                  )}
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
