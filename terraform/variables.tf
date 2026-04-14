@@ -81,3 +81,20 @@ variable "scheduler_timezone" {
   type        = string
   default     = "America/Bogota"
 }
+
+# ── Scheduler Telegram notifications (optional) ───────────────────────────────
+# When set, EventBridge sends a Telegram message when EC2 starts or stops.
+# These are infrastructure-level notifications (instance on/off), not business logic.
+
+variable "telegram_bot_token" {
+  description = "Telegram bot token for EC2 start/stop notifications (leave empty to disable)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "telegram_chat_id" {
+  description = "Telegram chat ID to receive EC2 start/stop notifications"
+  type        = string
+  default     = ""
+}

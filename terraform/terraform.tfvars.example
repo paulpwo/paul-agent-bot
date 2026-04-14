@@ -32,3 +32,9 @@ github_repo = "yourusername/paulbot"
 scheduler_stop_cron  = "cron(30 22 * * ? *)"    # Stop at 22:30 every day
 scheduler_start_cron = "cron(0 7 ? * MON-SAT *)" # Start at 07:00 Mon–Sat
 scheduler_timezone   = "America/Bogota"           # https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+
+# ── Scheduler Telegram notifications (optional) ───────────────────────────────
+# Infrastructure alerts: notifies when EC2 powers on or off.
+# Leave empty to disable. These are separate from PaulBot's in-app notifications.
+telegram_bot_token = ""   # same bot token as in .env
+telegram_chat_id   = ""   # your personal Telegram chat ID

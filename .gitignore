@@ -47,6 +47,21 @@ yarn-error.log*
 .agents/
 .claude/
 
+# ── Terraform ────────────────────────────────────────────────────
+# Real variable values (may contain tokens, IPs, secrets)
+terraform/terraform.tfvars
+terraform/terraform.tfvars.json
+# State files contain ALL resource details including sensitive values in plaintext
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/.terraform/
+terraform/crash.log
+# Override files (local developer overrides)
+terraform/override.tf
+terraform/override.tf.json
+terraform/*_override.tf
+terraform/*_override.tf.json
+
 # ── Misc ──────────────────────────────────────────────────────────
 .turbo/
 .vercel/
