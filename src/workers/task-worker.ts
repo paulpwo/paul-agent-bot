@@ -116,7 +116,7 @@ Keep messages concise. Use Markdown for formatting if helpful. Do NOT send unsol
     })
 
     // Run the agent
-    const result = await runAgent({
+    let result = await runAgent({
       taskId,
       prompt,
       workspacePath,
@@ -126,6 +126,30 @@ Keep messages concise. Use Markdown for formatting if helpful. Do NOT send unsol
       abortSignal: abortController.signal,
       extraEnv,
     })
+
+    // If --resume failed because the session no longer exists (container restart wipes /tmp),
+    // clear the stale agentSessionId and retry as a fresh session.
+    if (
+      !result.success &&
+      result.error?.includes("No conversation found with session ID") &&
+      taskRecord?.sessionId
+    ) {
+      console.warn(`[worker] Stale agentSessionId — clearing and retrying as fresh session`)
+      await db.session.update({
+        where: { id: taskRecord.sessionId },
+        data: { agentSessionId: null },
+      })
+      result = await runAgent({
+        taskId,
+        prompt,
+        workspacePath,
+        systemPrompt,
+        channel,
+        agentSessionId: undefined,
+        abortSignal: abortController.signal,
+        extraEnv,
+      })
+    }
 
     if (!result.success) throw new Error(result.error ?? "Agent failed")
 

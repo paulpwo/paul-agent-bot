@@ -33,9 +33,18 @@ data "aws_ami" "ubuntu_2204" {
   most_recent = true
   owners      = ["099720109477"] # Canonical
 
-  filter { name = "name";              values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"] }
-  filter { name = "virtualization-type"; values = ["hvm"] }
-  filter { name = "architecture";       values = ["x86_64"] }
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
+  }
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+  filter {
+    name   = "architecture"
+    values = ["x86_64"]
+  }
 }
 
 data "aws_vpc" "default" {
@@ -61,7 +70,7 @@ resource "aws_key_pair" "paulagentbot" {
 
 resource "aws_security_group" "paulagentbot" {
   name        = "${var.project}-sg"
-  description = "PaulAgentBot EC2 — HTTP, HTTPS, SSH"
+  description = "PaulAgentBot EC2 - HTTP, HTTPS, SSH"
   vpc_id      = data.aws_vpc.default.id
 
   ingress {
