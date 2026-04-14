@@ -56,7 +56,7 @@ const ALL_SETTINGS_META: Array<{
     section: "github-app",
     masked: false,
     envFallback: "GITHUB_APP_BOT_USERNAME",
-    placeholder: "paulbot[bot]",
+    placeholder: "paulagentbot[bot]",
   },
   // Section 2 — GitHub OAuth
   {

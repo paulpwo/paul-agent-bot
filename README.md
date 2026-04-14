@@ -152,7 +152,7 @@ Create a GitHub App at [github.com/settings/apps/new](https://github.com/setting
 | `GITHUB_APP_ID` | Your GitHub App's numeric ID |
 | `GITHUB_APP_PRIVATE_KEY` | Contents of the `.pem` private key (newlines as `\n`) |
 | `GITHUB_APP_WEBHOOK_SECRET` | Webhook secret set during app creation |
-| `GITHUB_APP_BOT_USERNAME` | The bot's GitHub username (e.g. `paulbot[bot]`) |
+| `GITHUB_APP_BOT_USERNAME` | The bot's GitHub username (e.g. `paulagentbot[bot]`) |
 | `GITHUB_CLIENT_ID` | OAuth app client ID (for dashboard login) |
 | `GITHUB_CLIENT_SECRET` | OAuth app client secret |
 

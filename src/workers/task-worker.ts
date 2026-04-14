@@ -50,8 +50,8 @@ export async function processTask(data: TaskJobData): Promise<void> {
     // Ensure workspace (clone or pull)
     const workspacePath = await ensureWorkspace({ repo, cloneUrl })
 
-    // Create task branch: paulbot/<threadId>
-    const branchName = await createTaskBranch(workspacePath, `paulbot/${threadId}`)
+    // Create task branch: paulagentbot/<threadId>
+    const branchName = await createTaskBranch(workspacePath, `paulagentbot/${threadId}`)
 
     // Load skills (global + repo CLAUDE.md + .claude/skills/)
     let systemPrompt = loadSkills(workspacePath)

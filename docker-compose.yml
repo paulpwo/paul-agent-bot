@@ -13,9 +13,9 @@ services:
       retries: 10
       start_period: 5s
 
-  # ── PaulBot web (Next.js dashboard + webhook receivers) ───────────────────────
-  paulbot:
-    image: ${PAULBOT_IMAGE}
+  # ── PaulAgentBot web (Next.js dashboard + webhook receivers) ───────────────────────
+  paulagentbot:
+    image: ${PAULAGENTBOT_IMAGE}
     restart: unless-stopped
     command: ["sh", "-c", "npx prisma migrate deploy && node server.js"]
     env_file: .env
@@ -34,19 +34,19 @@ services:
         target: /data/workspaces
       # SQLite database file (on EBS — survives container recreation)
       - type: bind
-        source: /data/paulbot.db
-        target: /data/paulbot.db
+        source: /data/paulagentbot.db
+        target: /data/paulagentbot.db
     environment:
-      DATABASE_URL: file:/data/paulbot.db
+      DATABASE_URL: file:/data/paulagentbot.db
       REDIS_URL: redis://redis:6379
       WORKSPACE_BASE: /data/workspaces
     ports:
       # Only bind to localhost — Caddy is the public-facing proxy
       - "127.0.0.1:3000:3000"
 
-  # ── PaulBot worker (BullMQ agent runner) ─────────────────────────────────────
-  paulbot-worker:
-    image: ${PAULBOT_IMAGE}
+  # ── PaulAgentBot worker (BullMQ agent runner) ─────────────────────────────────────
+  paulagentbot-worker:
+    image: ${PAULAGENTBOT_IMAGE}
     restart: unless-stopped
     command: ["node", "workers-entrypoint.js"]
     env_file: .env
@@ -54,7 +54,7 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      # Same mounts as paulbot — worker needs Claude auth + workspace access
+      # Same mounts as paulagentbot — worker needs Claude auth + workspace access
       - type: bind
         source: ${CLAUDE_AUTH_DIR:-/home/ubuntu/.claude}
         target: /root/.claude
@@ -63,10 +63,10 @@ services:
         source: /data/workspaces
         target: /data/workspaces
       - type: bind
-        source: /data/paulbot.db
-        target: /data/paulbot.db
+        source: /data/paulagentbot.db
+        target: /data/paulagentbot.db
     environment:
-      DATABASE_URL: file:/data/paulbot.db
+      DATABASE_URL: file:/data/paulagentbot.db
       REDIS_URL: redis://redis:6379
       WORKSPACE_BASE: /data/workspaces
     # No port mapping — worker is internal only
@@ -84,9 +84,9 @@ services:
       - "443:443"
       - "443:443/udp"   # HTTP/3 (QUIC)
     environment:
-      PAULBOT_DOMAIN: ${PAULBOT_DOMAIN}
+      PAULAGENTBOT_DOMAIN: ${PAULAGENTBOT_DOMAIN}
     depends_on:
-      - paulbot
+      - paulagentbot
 
 # ── Named volumes ──────────────────────────────────────────────────────────────
 volumes:

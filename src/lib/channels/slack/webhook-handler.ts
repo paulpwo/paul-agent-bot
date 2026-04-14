@@ -7,11 +7,11 @@ import type { SlackEvent } from "@/app/api/webhooks/slack/route"
 
 const ACK_KEY = (taskId: string) => `slack:ack:${taskId}`
 
-// Parse `/paulbot repo owner/name` and similar commands from message text
+// Parse `/paulagentbot repo owner/name` and similar commands from message text
 function extractCommand(text: string): { command: string; arg?: string } | null {
   // Strip bot mention (e.g. <@U123ABC>)
   const clean = text.replace(/<@[A-Z0-9]+>/g, "").trim()
-  const match = clean.match(/^\/paulbot\s+(\w+)(?:\s+(.+))?$|^(\w+)(?:\s+(.+))?$/)
+  const match = clean.match(/^\/paulagentbot\s+(\w+)(?:\s+(.+))?$|^(\w+)(?:\s+(.+))?$/)
   if (!match) return null
   const command = (match[1] ?? match[3] ?? "").toLowerCase()
   const arg = match[2] ?? match[4]
@@ -75,7 +75,7 @@ export async function handleSlackEvent(event: SlackEvent, teamId: string): Promi
     await client.chat.postMessage({
       channel: channelId,
       thread_ts: event.ts,
-      text: "Please set a repository first. Use `/paulbot repo owner/name` or mention me with `repo owner/name`.",
+      text: "Please set a repository first. Use `/paulagentbot repo owner/name` or mention me with `repo owner/name`.",
     })
     return
   }

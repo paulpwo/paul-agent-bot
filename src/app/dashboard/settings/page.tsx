@@ -36,7 +36,7 @@ const SETTINGS_DEFS: Array<{
 }> = [
   { key: "github.appId", label: "GitHub App ID", section: "github-app", masked: false, placeholder: "123456" },
   { key: SETTINGS_KEYS.GITHUB_APP_WEBHOOK_SECRET, label: "Webhook Secret", section: "github-app", masked: true, placeholder: "whsec_..." },
-  { key: "github.botUsername", label: "Bot Username", section: "github-app", masked: false, placeholder: "paulbot[bot]" },
+  { key: "github.botUsername", label: "Bot Username", section: "github-app", masked: false, placeholder: "paulagentbot[bot]" },
   { key: SETTINGS_KEYS.GITHUB_OAUTH_CLIENT_ID, label: "OAuth Client ID", section: "github-oauth", masked: false, placeholder: "Iv1.abc..." },
   { key: SETTINGS_KEYS.GITHUB_OAUTH_CLIENT_SECRET, label: "OAuth Client Secret", section: "github-oauth", masked: true, placeholder: "••••••••" },
   { key: SETTINGS_KEYS.TELEGRAM_BOT_TOKEN, label: "Bot Token", section: "telegram", masked: true, placeholder: "123456:ABC-..." },

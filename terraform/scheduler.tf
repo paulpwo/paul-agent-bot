@@ -26,14 +26,14 @@ resource "aws_iam_role_policy" "scheduler" {
     Statement = [{
       Effect   = "Allow"
       Action   = ["ec2:StartInstances", "ec2:StopInstances"]
-      Resource = aws_instance.paulbot.arn
+      Resource = aws_instance.paulagentbot.arn
     }]
   })
 }
 
 resource "aws_scheduler_schedule" "stop_nightly" {
   name        = "${var.project}-stop-nightly"
-  description = "Stop PaulBot EC2 at end of day"
+  description = "Stop PaulAgentBot EC2 at end of day"
 
   flexible_time_window { mode = "OFF" }
 
@@ -43,13 +43,13 @@ resource "aws_scheduler_schedule" "stop_nightly" {
   target {
     arn      = "arn:aws:scheduler:::aws-sdk:ec2:stopInstances"
     role_arn = aws_iam_role.scheduler.arn
-    input    = jsonencode({ InstanceIds = [aws_instance.paulbot.id] })
+    input    = jsonencode({ InstanceIds = [aws_instance.paulagentbot.id] })
   }
 }
 
 resource "aws_scheduler_schedule" "start_daily" {
   name        = "${var.project}-start-daily"
-  description = "Start PaulBot EC2 at beginning of day"
+  description = "Start PaulAgentBot EC2 at beginning of day"
 
   flexible_time_window { mode = "OFF" }
 
@@ -59,14 +59,14 @@ resource "aws_scheduler_schedule" "start_daily" {
   target {
     arn      = "arn:aws:scheduler:::aws-sdk:ec2:startInstances"
     role_arn = aws_iam_role.scheduler.arn
-    input    = jsonencode({ InstanceIds = [aws_instance.paulbot.id] })
+    input    = jsonencode({ InstanceIds = [aws_instance.paulagentbot.id] })
   }
 }
 
 # ── Telegram notifications: EC2 start/stop (optional) ─────────────────────────
 # Infrastructure-level alerts — notifies when the instance powers on or off.
 # Enabled only when var.telegram_bot_token and var.telegram_chat_id are set.
-# These are separate from PaulBot's in-app notification system (business logic).
+# These are separate from PaulAgentBot's in-app notification system (business logic).
 
 locals {
   telegram_notifications_enabled = var.telegram_bot_token != "" && var.telegram_chat_id != ""
@@ -133,7 +133,7 @@ resource "aws_cloudwatch_event_rule" "ec2_started" {
     "detail-type" = ["EC2 Instance State-change Notification"]
     detail = {
       state         = ["running"]
-      "instance-id" = [aws_instance.paulbot.id]
+      "instance-id" = [aws_instance.paulagentbot.id]
     }
   })
 }
@@ -150,7 +150,7 @@ resource "aws_cloudwatch_event_target" "ec2_started_telegram" {
       instance_id = "$.detail.instance-id"
       time        = "$.time"
     }
-    input_template = "{\"chat_id\":\"${var.telegram_chat_id}\",\"text\":\"▶️ PaulBot EC2 started\\nInstance: <instance_id>\\nTime: <time>\"}"
+    input_template = "{\"chat_id\":\"${var.telegram_chat_id}\",\"text\":\"▶️ PaulAgentBot EC2 started\\nInstance: <instance_id>\\nTime: <time>\"}"
   }
 }
 
@@ -164,7 +164,7 @@ resource "aws_cloudwatch_event_rule" "ec2_stopped" {
     "detail-type" = ["EC2 Instance State-change Notification"]
     detail = {
       state         = ["stopped"]
-      "instance-id" = [aws_instance.paulbot.id]
+      "instance-id" = [aws_instance.paulagentbot.id]
     }
   })
 }
@@ -181,6 +181,6 @@ resource "aws_cloudwatch_event_target" "ec2_stopped_telegram" {
       instance_id = "$.detail.instance-id"
       time        = "$.time"
     }
-    input_template = "{\"chat_id\":\"${var.telegram_chat_id}\",\"text\":\"⏹️ PaulBot EC2 stopped\\nInstance: <instance_id>\\nTime: <time>\"}"
+    input_template = "{\"chat_id\":\"${var.telegram_chat_id}\",\"text\":\"⏹️ PaulAgentBot EC2 stopped\\nInstance: <instance_id>\\nTime: <time>\"}"
   }
 }

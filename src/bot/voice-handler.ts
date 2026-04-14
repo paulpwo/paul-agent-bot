@@ -29,7 +29,7 @@ async function downloadFile(fileId: string): Promise<string> {
   const response = await fetch(url)
   if (!response.ok) throw new Error(`Failed to download file: ${response.status}`)
 
-  const tmpPath = join(tmpdir(), `paulbot-voice-${randomUUID()}.oga`)
+  const tmpPath = join(tmpdir(), `paulagentbot-voice-${randomUUID()}.oga`)
   const buffer = await response.arrayBuffer()
   await import("fs/promises").then(fs => fs.writeFile(tmpPath, Buffer.from(buffer)))
 

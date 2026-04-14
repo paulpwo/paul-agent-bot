@@ -1,4 +1,4 @@
-# PaulBot — Terraform Variables
+# PaulAgentBot — Terraform Variables
 # Copy to terraform.tfvars and fill in your values:
 #   cp terraform/terraform.tfvars.example terraform/terraform.tfvars
 #
@@ -21,11 +21,11 @@ allowed_ssh_cidr = "0.0.0.0/0"
 
 # ── Domain ────────────────────────────────────────────────────────────────────
 # Point this domain's A record to the elastic_ip output after first apply
-domain_name = "paulbot.yourdomain.com"
+domain_name = "paulagentbot.yourdomain.com"
 
 # ── GitHub ────────────────────────────────────────────────────────────────────
 # Your GitHub repo — required for the OIDC deploy role (owner/repo format)
-github_repo = "yourusername/paulbot"
+github_repo = "yourusername/paulagentbot"
 
 # ── Scheduler ─────────────────────────────────────────────────────────────────
 # Automatically stops/starts EC2 to save money. Adjust to your timezone and schedule.
@@ -35,6 +35,6 @@ scheduler_timezone   = "America/Bogota"           # https://en.wikipedia.org/wik
 
 # ── Scheduler Telegram notifications (optional) ───────────────────────────────
 # Infrastructure alerts: notifies when EC2 powers on or off.
-# Leave empty to disable. These are separate from PaulBot's in-app notifications.
+# Leave empty to disable. These are separate from PaulAgentBot's in-app notifications.
 telegram_bot_token = ""   # same bot token as in .env
 telegram_chat_id   = ""   # your personal Telegram chat ID

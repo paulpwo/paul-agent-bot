@@ -15,10 +15,10 @@ on:
 env:
   AWS_REGION: us-east-1
   ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}      # e.g. 123456789.dkr.ecr.us-east-1.amazonaws.com
-  ECR_REPOSITORY: paulbot
-  ECS_CLUSTER: paulbot-prod                       # matches terraform project-environment
-  ECS_SERVICE_WEB: paulbot-prod-web
-  ECS_SERVICE_WORKER: paulbot-prod-worker
+  ECR_REPOSITORY: paulagentbot
+  ECS_CLUSTER: paulagentbot-prod                       # matches terraform project-environment
+  ECS_SERVICE_WEB: paulagentbot-prod-web
+  ECS_SERVICE_WORKER: paulagentbot-prod-worker
 
 jobs:
   deploy:
@@ -69,7 +69,7 @@ jobs:
         id: get-web-taskdef
         run: |
           aws ecs describe-task-definition \
-            --task-definition paulbot-prod-web \
+            --task-definition paulagentbot-prod-web \
             --query taskDefinition \
             --output json > /tmp/web-taskdef.json
           echo "taskdef-file=/tmp/web-taskdef.json" >> "$GITHUB_OUTPUT"
@@ -87,7 +87,7 @@ jobs:
         id: get-worker-taskdef
         run: |
           aws ecs describe-task-definition \
-            --task-definition paulbot-prod-worker \
+            --task-definition paulagentbot-prod-worker \
             --query taskDefinition \
             --output json > /tmp/worker-taskdef.json
           echo "taskdef-file=/tmp/worker-taskdef.json" >> "$GITHUB_OUTPUT"
@@ -126,5 +126,5 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "| Service | Image |" >> "$GITHUB_STEP_SUMMARY"
           echo "|---------|-------|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| paulbot-web | \`${{ steps.build-image.outputs.image }}\` |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| paulbot-worker | \`${{ steps.build-image.outputs.image }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| paulagentbot-web | \`${{ steps.build-image.outputs.image }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| paulagentbot-worker | \`${{ steps.build-image.outputs.image }}\` |" >> "$GITHUB_STEP_SUMMARY"

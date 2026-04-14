@@ -74,9 +74,9 @@ export function ChatPage({ initialSession, initialMessages, recentSessions, repo
       .then((r) => r.json())
       .then((data: { branches: string[]; current: string | null }) => {
         setBranches(data.branches ?? [])
-        // If session has a threadId, prefer paulbot/<threadId> branch
+        // If session has a threadId, prefer paulagentbot/<threadId> branch
         const sessionBranch = initialSession?.threadId
-          ? `paulbot/${initialSession.threadId}`
+          ? `paulagentbot/${initialSession.threadId}`
           : null
         const resolved =
           sessionBranch && (data.branches ?? []).includes(sessionBranch)

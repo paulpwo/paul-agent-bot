@@ -1,20 +1,20 @@
 output "elastic_ip" {
   description = "Elastic IP — point your DNS A record here"
-  value       = aws_eip.paulbot.public_ip
+  value       = aws_eip.paulagentbot.public_ip
 }
 
 output "instance_id" {
   description = "EC2 instance ID"
-  value       = aws_instance.paulbot.id
+  value       = aws_instance.paulagentbot.id
 }
 
 output "ssh_command" {
   description = "SSH command to connect to the instance"
-  value       = "ssh ubuntu@${aws_eip.paulbot.public_ip}"
+  value       = "ssh ubuntu@${aws_eip.paulagentbot.public_ip}"
 }
 
 output "ecr_repository_url" {
-  description = "ECR repository URL — use as PAULBOT_IMAGE base"
+  description = "ECR repository URL — use as PAULAGENTBOT_IMAGE base"
   value       = module.ecr.repository_url
 }
 

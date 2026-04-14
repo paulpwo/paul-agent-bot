@@ -45,8 +45,8 @@ describe("GitHub webhook route", () => {
 
 describe("loop guard", () => {
   it("identifies bot senders by [bot] suffix", () => {
-    const isBotSender = (login: string) => login === "paulbot[bot]" || login.endsWith("[bot]")
-    expect(isBotSender("paulbot[bot]")).toBe(true)
+    const isBotSender = (login: string) => login === "paulagentbot[bot]" || login.endsWith("[bot]")
+    expect(isBotSender("paulagentbot[bot]")).toBe(true)
     expect(isBotSender("github-actions[bot]")).toBe(true)
     expect(isBotSender("paulpwo")).toBe(false)
     expect(isBotSender("dependabot")).toBe(false)

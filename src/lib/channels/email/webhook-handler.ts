@@ -11,10 +11,10 @@ export interface ParsedEmail {
   repo?: string // parsed from subject if present
 }
 
-// Parse repo from subject: "[@paulbot owner/name] my question here"
+// Parse repo from subject: "[@paulagentbot owner/name] my question here"
 // Returns { repo, cleanSubject } — cleanSubject has the tag stripped
 function parseSubject(subject: string): { repo: string | null; cleanSubject: string } {
-  const match = subject.match(/^\[@paulbot\s+([\w.-]+\/[\w.-]+)\]\s*(.*)$/i)
+  const match = subject.match(/^\[@paulagentbot\s+([\w.-]+\/[\w.-]+)\]\s*(.*)$/i)
   if (match) {
     return { repo: match[1], cleanSubject: match[2].trim() || subject }
   }

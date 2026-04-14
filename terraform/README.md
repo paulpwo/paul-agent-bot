@@ -1,16 +1,16 @@
-# PaulBot — Terraform Infrastructure
+# PaulAgentBot — Terraform Infrastructure
 
 Single EC2 instance running Docker Compose (Redis + SQLite on EBS).
 
 ## Architecture
 
 ```
-Internet → Caddy (HTTPS/TLS) → paulbot:3000  (Next.js + webhooks)
-                                paulbot-worker (BullMQ agent runner)
+Internet → Caddy (HTTPS/TLS) → paulagentbot:3000  (Next.js + webhooks)
+                                paulagentbot-worker (BullMQ agent runner)
                                 redis          (queues + pub/sub)
 
 Data on EBS volume (/data):
-  /data/paulbot.db    ← SQLite database (survives deploys)
+  /data/paulagentbot.db    ← SQLite database (survives deploys)
   /data/workspaces/   ← cloned repos (survives deploys)
   /data/caddy/        ← TLS certificates (survives deploys)
 ```
@@ -32,31 +32,31 @@ Data on EBS volume (/data):
 
 1. **AWS CLI configured:**
    ```bash
-   aws configure --profile paulbot
+   aws configure --profile paulagentbot
    ```
 
 2. **S3 + DynamoDB for Terraform state** — create once before `terraform init`:
    ```bash
-   PROFILE=paulbot
+   PROFILE=paulagentbot
    REGION=us-east-1
 
    aws s3api create-bucket \
-     --bucket paulbot-terraform-state \
+     --bucket paulagentbot-terraform-state \
      --region $REGION --profile $PROFILE
 
    aws s3api put-bucket-versioning \
-     --bucket paulbot-terraform-state \
+     --bucket paulagentbot-terraform-state \
      --versioning-configuration Status=Enabled \
      --profile $PROFILE
 
    aws s3api put-bucket-encryption \
-     --bucket paulbot-terraform-state \
+     --bucket paulagentbot-terraform-state \
      --server-side-encryption-configuration \
        '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}' \
      --profile $PROFILE
 
    aws dynamodb create-table \
-     --table-name paulbot-terraform-locks \
+     --table-name paulagentbot-terraform-locks \
      --attribute-definitions AttributeName=LockID,AttributeType=S \
      --key-schema AttributeName=LockID,KeyType=HASH \
      --billing-mode PAY_PER_REQUEST \
@@ -96,14 +96,14 @@ terraform output
 $(terraform output -raw ssh_command)
 
 # Fill in secrets
-nano ~/paulbot/.env
+nano ~/paulagentbot/.env
 
 # Start the stack
-sudo systemctl start paulbot
+sudo systemctl start paulagentbot
 
 # Verify
-docker compose -f ~/paulbot/docker-compose.yml ps
-docker compose -f ~/paulbot/docker-compose.yml logs -f
+docker compose -f ~/paulagentbot/docker-compose.yml ps
+docker compose -f ~/paulagentbot/docker-compose.yml logs -f
 ```
 
 ## DNS setup
@@ -113,7 +113,7 @@ Point your domain's **A record** to the Elastic IP:
 ```bash
 terraform output elastic_ip
 # → 1.2.3.4
-# Create A record: paulbot.yourdomain.com → 1.2.3.4
+# Create A record: paulagentbot.yourdomain.com → 1.2.3.4
 ```
 
 Caddy handles TLS automatically via Let's Encrypt — no ACM needed.
@@ -144,11 +144,11 @@ After apply, set these secrets in your GitHub repository:
 ssh ubuntu@$(cd terraform && terraform output -raw elastic_ip)
 
 # Container logs
-docker compose -f ~/paulbot/docker-compose.yml logs -f paulbot
-docker compose -f ~/paulbot/docker-compose.yml logs -f paulbot-worker
+docker compose -f ~/paulagentbot/docker-compose.yml logs -f paulagentbot
+docker compose -f ~/paulagentbot/docker-compose.yml logs -f paulagentbot-worker
 
 # Restart a service
-docker compose -f ~/paulbot/docker-compose.yml restart paulbot
+docker compose -f ~/paulagentbot/docker-compose.yml restart paulagentbot
 ```
 
 ## If the instance is replaced

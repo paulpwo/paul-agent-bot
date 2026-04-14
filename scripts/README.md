@@ -28,9 +28,9 @@ SSH-based deploy script. Pulls a new Docker image from ECR and restarts the app 
 1. Resolves EC2 host and ECR URL from `terraform output`
 2. SSHs into the instance
 3. Logs Docker into ECR using instance IAM role
-4. Updates `PAULBOT_IMAGE` in `.env`
+4. Updates `PAULAGENTBOT_IMAGE` in `.env`
 5. Pulls the new image
-6. Restarts `paulbot` and `paulbot-worker` containers (Redis stays up)
+6. Restarts `paulagentbot` and `paulagentbot-worker` containers (Redis stays up)
 
 ### First deploy
 
@@ -38,7 +38,7 @@ On a fresh instance, the docker-compose stack is not running yet. After filling 
 
 ```bash
 ssh ubuntu@<elastic-ip>
-cd ~/paulbot
-sudo systemctl start paulbot
+cd ~/paulagentbot
+sudo systemctl start paulagentbot
 docker compose logs -f
 ```

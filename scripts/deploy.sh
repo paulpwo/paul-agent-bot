@@ -33,41 +33,41 @@ ECR_URL=$(terraform -chdir="$TF_DIR" output -raw ecr_repository_url 2>/dev/null)
 }
 
 IMAGE_TAG="${2:-latest}"
-PAULBOT_IMAGE="${ECR_URL}:${IMAGE_TAG}"
+PAULAGENTBOT_IMAGE="${ECR_URL}:${IMAGE_TAG}"
 AWS_REGION="${AWS_REGION:-us-east-1}"
 
 echo "=============================="
-echo "  PaulBot Deploy"
+echo "  PaulAgentBot Deploy"
 echo "  Host:  $EC2_HOST"
-echo "  Image: $PAULBOT_IMAGE"
+echo "  Image: $PAULAGENTBOT_IMAGE"
 echo "=============================="
 echo ""
 
 ssh -o StrictHostKeyChecking=no -o ConnectTimeout=15 ubuntu@"$EC2_HOST" \
-  bash -s -- "$ECR_URL" "$PAULBOT_IMAGE" "$AWS_REGION" << 'REMOTE_EOF'
+  bash -s -- "$ECR_URL" "$PAULAGENTBOT_IMAGE" "$AWS_REGION" << 'REMOTE_EOF'
 set -euo pipefail
 ECR_URL="$1"
-PAULBOT_IMAGE="$2"
+PAULAGENTBOT_IMAGE="$2"
 AWS_REGION="$3"
 
-cd ~/paulbot
+cd ~/paulagentbot
 
 echo "--- [1/4] ECR login..."
 aws ecr get-login-password --region "$AWS_REGION" \
   | docker login --username AWS --password-stdin "$ECR_URL"
 
-echo "--- [2/4] Updating PAULBOT_IMAGE in .env..."
-if grep -q "^PAULBOT_IMAGE=" .env; then
-  sed -i "s|^PAULBOT_IMAGE=.*|PAULBOT_IMAGE=$PAULBOT_IMAGE|" .env
+echo "--- [2/4] Updating PAULAGENTBOT_IMAGE in .env..."
+if grep -q "^PAULAGENTBOT_IMAGE=" .env; then
+  sed -i "s|^PAULAGENTBOT_IMAGE=.*|PAULAGENTBOT_IMAGE=$PAULAGENTBOT_IMAGE|" .env
 else
-  echo "PAULBOT_IMAGE=$PAULBOT_IMAGE" >> .env
+  echo "PAULAGENTBOT_IMAGE=$PAULAGENTBOT_IMAGE" >> .env
 fi
 
 echo "--- [3/4] Pulling new images..."
-PAULBOT_IMAGE="$PAULBOT_IMAGE" docker compose pull paulbot paulbot-worker
+PAULAGENTBOT_IMAGE="$PAULAGENTBOT_IMAGE" docker compose pull paulagentbot paulagentbot-worker
 
 echo "--- [4/4] Restarting app containers (redis stays up)..."
-PAULBOT_IMAGE="$PAULBOT_IMAGE" docker compose up -d --no-deps paulbot paulbot-worker
+PAULAGENTBOT_IMAGE="$PAULAGENTBOT_IMAGE" docker compose up -d --no-deps paulagentbot paulagentbot-worker
 
 echo ""
 echo "Deploy complete. Status:"

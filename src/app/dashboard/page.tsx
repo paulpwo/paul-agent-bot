@@ -122,7 +122,7 @@ export default async function DashboardPage() {
             <div className="glass-card-solid rounded-[10px] p-10 text-center">
               <p className="text-sm font-medium text-text-secondary">No tasks yet</p>
               <p className="text-xs text-text-muted mt-1.5 max-w-xs mx-auto">
-                Mention @paulbot in a GitHub issue, or send a message in Telegram to queue your first task.
+                Mention @paulagentbot in a GitHub issue, or send a message in Telegram to queue your first task.
               </p>
             </div>
           </div>

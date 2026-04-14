@@ -1,5 +1,5 @@
 #!/bin/bash
-# PaulBot EC2 bootstrap script
+# PaulAgentBot EC2 bootstrap script
 # Runs once on first instance launch via cloud-init.
 # Terraform templatefile variables: ecr_repo_url, aws_region, domain
 set -euo pipefail
@@ -67,23 +67,23 @@ fi
 # Format only if not already formatted (idempotent on re-runs)
 if ! blkid "$${DEVICE}" &>/dev/null; then
   echo "Formatting $${DEVICE} as ext4..."
-  mkfs.ext4 -L paulbot-data "$${DEVICE}"
+  mkfs.ext4 -L paulagentbot-data "$${DEVICE}"
 fi
 
 mkdir -p /data
-if ! grep -q "paulbot-data" /etc/fstab; then
-  echo "LABEL=paulbot-data /data ext4 defaults,nofail 0 2" >> /etc/fstab
+if ! grep -q "paulagentbot-data" /etc/fstab; then
+  echo "LABEL=paulagentbot-data /data ext4 defaults,nofail 0 2" >> /etc/fstab
 fi
 mount -a
 
 # Directories expected by docker-compose.yml
 mkdir -p /data/workspaces /data/caddy
 # Pre-create SQLite file so Docker bind mount doesn't create it as a directory
-touch /data/paulbot.db
+touch /data/paulagentbot.db
 chown -R ubuntu:ubuntu /data
 
 echo ">>> [6/8] App directory"
-APP_DIR=/home/ubuntu/paulbot
+APP_DIR=/home/ubuntu/paulagentbot
 mkdir -p "$${APP_DIR}"
 
 # Placeholder docker-compose.yml — real one should be deployed via git or deploy.sh
@@ -94,8 +94,8 @@ COMPOSE_EOF
 
 # Caddyfile — matches the one in the repository
 cat > "$${APP_DIR}/Caddyfile" << 'CADDY_EOF'
-{$PAULBOT_DOMAIN} {
-    reverse_proxy paulbot:3000
+{$PAULAGENTBOT_DOMAIN} {
+    reverse_proxy paulagentbot:3000
     encode gzip
     header {
         Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
@@ -108,11 +108,11 @@ CADDY_EOF
 
 # .env template — operator must fill in secrets before first start
 cat > "$${APP_DIR}/.env" << ENV_EOF
-# PaulBot environment — fill in all values before starting
+# PaulAgentBot environment — fill in all values before starting
 # See .env.example in the repository for documentation.
 
-PAULBOT_IMAGE=${ecr_repo_url}:latest
-PAULBOT_DOMAIN=${domain}
+PAULAGENTBOT_IMAGE=${ecr_repo_url}:latest
+PAULAGENTBOT_DOMAIN=${domain}
 
 NEXTAUTH_SECRET=CHANGE_ME
 NEXTAUTH_URL=https://${domain}
@@ -128,23 +128,23 @@ GITHUB_CLIENT_SECRET=
 TELEGRAM_BOT_TOKEN=
 
 REDIS_URL=redis://redis:6379
-DATABASE_URL=file:/data/paulbot.db
+DATABASE_URL=file:/data/paulagentbot.db
 CLAUDE_AUTH_DIR=/home/ubuntu/.claude
 ENV_EOF
 
 chown -R ubuntu:ubuntu "$${APP_DIR}"
 
 echo ">>> [7/8] Systemd service"
-cat > /etc/systemd/system/paulbot.service << 'SERVICE_EOF'
+cat > /etc/systemd/system/paulagentbot.service << 'SERVICE_EOF'
 [Unit]
-Description=PaulBot Docker Compose Stack
+Description=PaulAgentBot Docker Compose Stack
 After=docker.service network-online.target
 Requires=docker.service
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-WorkingDirectory=/home/ubuntu/paulbot
+WorkingDirectory=/home/ubuntu/paulagentbot
 ExecStartPre=/bin/bash -c 'aws ecr get-login-password --region AWS_REGION | docker login --username AWS --password-stdin ECR_REPO_URL'
 ExecStart=/usr/bin/docker compose up -d
 ExecStop=/usr/bin/docker compose down
@@ -156,22 +156,22 @@ WantedBy=multi-user.target
 SERVICE_EOF
 
 # Substitute Terraform template values into the systemd unit
-sed -i "s|AWS_REGION|${aws_region}|g" /etc/systemd/system/paulbot.service
-sed -i "s|ECR_REPO_URL|${ecr_repo_url}|g" /etc/systemd/system/paulbot.service
+sed -i "s|AWS_REGION|${aws_region}|g" /etc/systemd/system/paulagentbot.service
+sed -i "s|ECR_REPO_URL|${ecr_repo_url}|g" /etc/systemd/system/paulagentbot.service
 
 systemctl daemon-reload
-systemctl enable paulbot
+systemctl enable paulagentbot
 # Do NOT start — operator must fill in .env secrets first
 
 echo ">>> [8/8] Bootstrap complete"
 PUBLIC_IP=$$(curl -sf http://169.254.169.254/latest/meta-data/public-ipv4 || echo "unknown")
 echo ""
 echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║  PaulBot bootstrap complete                                  ║"
-echo "║  Fill in /home/ubuntu/paulbot/.env before starting          ║"
+echo "║  PaulAgentBot bootstrap complete                             ║"
+echo "║  Fill in /home/ubuntu/paulagentbot/.env before starting     ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo ""
 echo "  SSH:   ssh ubuntu@$${PUBLIC_IP}"
-echo "  Edit:  nano /home/ubuntu/paulbot/.env"
-echo "  Start: sudo systemctl start paulbot"
-echo "  Logs:  docker compose -f /home/ubuntu/paulbot/docker-compose.yml logs -f"
+echo "  Edit:  nano /home/ubuntu/paulagentbot/.env"
+echo "  Start: sudo systemctl start paulagentbot"
+echo "  Logs:  docker compose -f /home/ubuntu/paulagentbot/docker-compose.yml logs -f"

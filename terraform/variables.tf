@@ -7,17 +7,17 @@ variable "aws_region" {
 variable "aws_profile" {
   description = "AWS CLI profile to use"
   type        = string
-  default     = "paulbot"
+  default     = "paulagentbot"
 }
 
 variable "project" {
   description = "Project name (used as resource name prefix)"
   type        = string
-  default     = "paulbot"
+  default     = "paulagentbot"
 }
 
 variable "domain_name" {
-  description = "Public domain name for PaulBot (e.g. paulbot.yourdomain.com)"
+  description = "Public domain name for PaulAgentBot (e.g. paulagentbot.yourdomain.com)"
   type        = string
   default     = ""
 }

@@ -16,7 +16,7 @@ async function getFromAddress(): Promise<string> {
   return (
     (await getSetting(SETTINGS_KEYS.EMAIL_FROM_ADDRESS)) ??
     process.env.EMAIL_FROM_ADDRESS ??
-    "paulbot@mg.example.com"
+    "paulagentbot@mg.example.com"
   )
 }
 

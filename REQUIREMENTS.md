@@ -1,11 +1,11 @@
-# PaulBot — Requirements & Feature Analysis
+# PaulAgentBot — Requirements & Feature Analysis
 
 ## Visión central
 
 **El agente vive en el centro. Los canales son ventanas.**
 
 El bot actual (claude-code-telegram) tiene una sola ventana — Telegram.
-PaulBot tiene múltiples ventanas al mismo agente, con flujos cruzados entre ellas.
+PaulAgentBot tiene múltiples ventanas al mismo agente, con flujos cruzados entre ellas.
 
 ```
                     ┌─────────────────────────────┐
@@ -17,7 +17,7 @@ Email ─────────────►│                             
 ```
 
 **Flujos cruzados** — ejemplos reales:
-- `@paulbot` en un issue de GitHub → agente trabaja → **vos recibís update en Telegram** → resultado en el issue
+- `@paulagentbot` en un issue de GitHub → agente trabaja → **vos recibís update en Telegram** → resultado en el issue
 - Mandás instrucción desde Telegram → agente abre PR en GitHub → notificación en Slack
 - Email al bot → agente ejecuta → responde al hilo de email + comenta en el issue relacionado
 
@@ -160,7 +160,7 @@ Comando `/topics` abre una sesión interactiva de admin en el grupo:
 La conversación se genera DESDE GitHub, no desde una UI separada.
 
 ```
-Comentás @paulbot en un issue
+Comentás @paulagentbot en un issue
     → GitHub dispara webhook
     → Bot lee contexto completo (repo, issue, hilo, instrucción)
     → Agente trabaja (clona, analiza, edita)
@@ -170,8 +170,8 @@ Comentás @paulbot en un issue
 ```
 
 **Disparadores**:
-- `@paulbot <instrucción>` en comentario de issue
-- `@paulbot <instrucción>` en comentario de PR (review o inline)
+- `@paulagentbot <instrucción>` en comentario de issue
+- `@paulagentbot <instrucción>` en comentario de PR (review o inline)
 - Label `bot:task` en issue → toma título + descripción como instrucción
 - Label `bot:review` en PR → code review automático
 
@@ -185,7 +185,7 @@ Comentás @paulbot en un issue
 - Comenta en el issue: "Tomando la tarea... 🤖"
 - Updates de progreso durante la ejecución
 - Resultado final con resumen de qué cambió
-- Abre PR con los cambios (branch `paulbot/<issue-number>`)
+- Abre PR con los cambios (branch `paulagentbot/<issue-number>`)
 - Follow-up si le respondés en el mismo hilo
 
 **Requiere**: GitHub App instalada en los repos
@@ -195,7 +195,7 @@ Comentás @paulbot en un issue
 
 ### 1.3 Slack — Threads como conversaciones
 
-- `@paulbot <instrucción> en <repo>` en cualquier canal
+- `@paulagentbot <instrucción> en <repo>` en cualquier canal
 - Cada thread de Slack = conversación aislada (igual que Telegram topics)
 - Múltiples repos en paralelo desde distintos threads
 - El bot responde en el mismo thread con updates y resultado final
@@ -203,7 +203,7 @@ Comentás @paulbot en un issue
 
 ### 1.4 Email
 
-- Email a `paulbot@tudominio.com` con instrucción + repo en subject o cuerpo
+- Email a `paulagentbot@tudominio.com` con instrucción + repo en subject o cuerpo
 - El bot responde al hilo de email con progreso y resultado
 - Para tareas asíncronas donde no necesitás tiempo real
 
@@ -257,7 +257,7 @@ Cómo se ve por canal:
 ### 2.3 Interrupt
 
 - **Telegram**: `/stop`
-- **Slack**: `@paulbot stop`
+- **Slack**: `@paulagentbot stop`
 - Implementado con `AbortController` pasado al SDK
 
 ---
@@ -269,14 +269,14 @@ El componente que habilita el flujo nativo de GitHub.
 **Setup**:
 1. Registrar en `github.com/settings/apps`
 2. Instalar en los repos deseados (selección granular)
-3. Configurar webhook URL: `https://paulbot.tudominio.com/api/webhooks/github`
+3. Configurar webhook URL: `https://paulagentbot.tudominio.com/api/webhooks/github`
 4. `GITHUB_APP_WEBHOOK_SECRET` para verificación HMAC
 
 **Flujo de eventos**:
 ```
 GitHub Event → /api/webhooks/github (Next.js route)
     → Verifica HMAC
-    → ¿Menciona @paulbot o tiene label bot:*? → SÍ
+    → ¿Menciona @paulagentbot o tiene label bot:*? → SÍ
     → Encola tarea en BullMQ
     → Worker procesa con @anthropic-ai/claude-code
     → Resultados via Octokit (comenta, abre PR)
@@ -357,7 +357,7 @@ Repositorios con acceso autorizado:
 
 - **"Administrar acceso en GitHub"** → redirect a la página de instalación de la GitHub App en GitHub, donde el usuario puede agregar o quitar repos sin reinstalar la app
 - Al volver al dashboard, la lista se refresca automáticamente con los repos recién autorizados
-- Los repos nuevos aparecen disponibles para habilitar en PaulBot
+- Los repos nuevos aparecen disponibles para habilitar en PaulAgentBot
 - Si se revoca acceso a un repo desde GitHub → el dashboard lo marca como `❌` y desactiva las conversaciones asociadas con aviso
 
 Exactamente el flujo que viste en OpenHands Cloud — "Agregar repositorios de GitHub" desde el selector.
@@ -395,7 +395,7 @@ WORKSPACE_BASE=/data/workspaces   # único lugar donde el agente puede leer/escr
 
 ### Branch management
 - El agente NUNCA trabaja en `main` o ramas protegidas
-- Branch naming: `paulbot/<issue-number>` o `paulbot/<task-slug>`
+- Branch naming: `paulagentbot/<issue-number>` o `paulagentbot/<task-slug>`
 - Protected branches configurables por repo
 
 ---
@@ -537,7 +537,7 @@ El agente interpreta el texto y genera el cron expression:
 
 ## 9. Plugins & Skills
 
-Igual que Claude Code carga `CLAUDE.md` y skills desde `.claude/skills/`, PaulBot soporta el mismo sistema — tanto globales como por repo.
+Igual que Claude Code carga `CLAUDE.md` y skills desde `.claude/skills/`, PaulAgentBot soporta el mismo sistema — tanto globales como por repo.
 
 ### Skills globales (aplican a todos los repos)
 Guardadas en el servidor: `~/.claude/skills/` o `/data/skills/`
@@ -593,7 +593,7 @@ Editor visual completo — sin tocar archivos manualmente:
 
 ### MCP Servers
 
-Igual que Claude Code soporta MCP, PaulBot puede cargar MCP servers por repo o globalmente.
+Igual que Claude Code soporta MCP, PaulAgentBot puede cargar MCP servers por repo o globalmente.
 
 **Gestión desde el dashboard**:
 
@@ -638,8 +638,8 @@ Igual que Claude Code soporta MCP, PaulBot puede cargar MCP servers por repo o g
 ```
 EC2 t3.medium (4GB RAM)
 └── Docker Compose
-    ├── paulbot          (Next.js — dashboard + webhooks + workers)
-    │   (NextAuth.js incluido en paulbot — sin servicio extra)
+    ├── paulagentbot          (Next.js — dashboard + webhooks + workers)
+    │   (NextAuth.js incluido en paulagentbot — sin servicio extra)
     ├── caddy            (TLS, reverse proxy)
     ├── postgres         (estado de sesiones)
     └── redis            (BullMQ queue)
@@ -675,7 +675,7 @@ EC2 t3.medium (4GB RAM)
 1. **Scaffold Next.js** — proyecto base, estructura de carpetas, Prisma, Redis
 2. **GitHub App** — registrar, instalar en repos, webhook receiver con HMAC
 3. **Agente core** — `@anthropic-ai/claude-code` con streaming, aprobación, interrupt
-4. **GitHub canal** — `@paulbot` en issues/PRs → agente → comenta → PR
+4. **GitHub canal** — `@paulagentbot` en issues/PRs → agente → comenta → PR
 5. **Telegram bridge** — reescribir fork actual en TS con `grammy`, session scoping
 6. **Dashboard** — ver tareas, repos, historial
 7. **Auth** — NextAuth.js + GitHub OAuth, settings panel en BD

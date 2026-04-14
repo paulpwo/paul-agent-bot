@@ -15,10 +15,10 @@ terraform {
   # Remote state — create the S3 bucket + DynamoDB table before running terraform init
   # See: https://developer.hashicorp.com/terraform/language/settings/backends/s3
   backend "s3" {
-    bucket         = "paulbot-terraform-state"
-    key            = "paulbot/terraform.tfstate"
+    bucket         = "paulagentbot-terraform-state"
+    key            = "paulagentbot/terraform.tfstate"
     region         = "us-east-1"
-    dynamodb_table = "paulbot-terraform-locks"
+    dynamodb_table = "paulagentbot-terraform-locks"
     encrypt        = true
   }
 }
@@ -59,7 +59,7 @@ module "ecr" {
 
 # ── SSH Key Pair ───────────────────────────────────────────────────────────────
 
-resource "aws_key_pair" "paulbot" {
+resource "aws_key_pair" "paulagentbot" {
   key_name   = "${var.project}-key"
   public_key = file(pathexpand(var.public_key_path))
   tags       = { Name = "${var.project}-key" }
@@ -67,9 +67,9 @@ resource "aws_key_pair" "paulbot" {
 
 # ── Security Group ─────────────────────────────────────────────────────────────
 
-resource "aws_security_group" "paulbot" {
+resource "aws_security_group" "paulagentbot" {
   name        = "${var.project}-sg"
-  description = "PaulBot EC2 — HTTP, HTTPS, SSH"
+  description = "PaulAgentBot EC2 — HTTP, HTTPS, SSH"
   vpc_id      = data.aws_vpc.default.id
 
   ingress {
@@ -144,19 +144,19 @@ resource "aws_iam_role_policy" "ec2_ecr" {
   })
 }
 
-resource "aws_iam_instance_profile" "paulbot" {
+resource "aws_iam_instance_profile" "paulagentbot" {
   name = "${var.project}-ec2-profile"
   role = aws_iam_role.ec2.name
 }
 
 # ── EC2 Instance ───────────────────────────────────────────────────────────────
 
-resource "aws_instance" "paulbot" {
+resource "aws_instance" "paulagentbot" {
   ami                    = data.aws_ami.ubuntu_2204.id
   instance_type          = var.instance_type
-  key_name               = aws_key_pair.paulbot.key_name
-  vpc_security_group_ids = [aws_security_group.paulbot.id]
-  iam_instance_profile   = aws_iam_instance_profile.paulbot.name
+  key_name               = aws_key_pair.paulagentbot.key_name
+  vpc_security_group_ids = [aws_security_group.paulagentbot.id]
+  iam_instance_profile   = aws_iam_instance_profile.paulagentbot.name
 
   root_block_device {
     volume_type           = "gp3"
@@ -186,22 +186,22 @@ resource "aws_instance" "paulbot" {
 
 # ── Elastic IP ─────────────────────────────────────────────────────────────────
 
-resource "aws_eip" "paulbot" {
+resource "aws_eip" "paulagentbot" {
   domain = "vpc"
   tags   = { Name = "${var.project}-eip" }
 }
 
-resource "aws_eip_association" "paulbot" {
-  instance_id   = aws_instance.paulbot.id
-  allocation_id = aws_eip.paulbot.id
+resource "aws_eip_association" "paulagentbot" {
+  instance_id   = aws_instance.paulagentbot.id
+  allocation_id = aws_eip.paulagentbot.id
 }
 
 # ── Data EBS Volume ────────────────────────────────────────────────────────────
 # Separate from root — survives instance termination/replacement
-# Contains: SQLite DB (/data/paulbot.db), workspaces (/data/workspaces), Caddy certs (/data/caddy)
+# Contains: SQLite DB (/data/paulagentbot.db), workspaces (/data/workspaces), Caddy certs (/data/caddy)
 
 resource "aws_ebs_volume" "data" {
-  availability_zone = aws_instance.paulbot.availability_zone
+  availability_zone = aws_instance.paulagentbot.availability_zone
   type              = "gp3"
   size              = var.data_volume_size
   tags              = { Name = "${var.project}-data" }
@@ -215,7 +215,7 @@ resource "aws_ebs_volume" "data" {
 resource "aws_volume_attachment" "data" {
   device_name  = "/dev/xvdf"
   volume_id    = aws_ebs_volume.data.id
-  instance_id  = aws_instance.paulbot.id
+  instance_id  = aws_instance.paulagentbot.id
   force_detach = false
 }
 

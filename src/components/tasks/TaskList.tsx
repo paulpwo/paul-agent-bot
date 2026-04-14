@@ -94,7 +94,7 @@ export default function TaskList({ initialTasks, repos }: Props) {
           <p className="text-sm font-medium text-text-secondary">No tasks yet</p>
           <p className="text-xs text-text-muted mt-2 max-w-sm">
             Click <span className="text-text-primary">New Task</span>, mention{" "}
-            <span className="text-text-primary font-mono">@paulbot</span> in a GitHub issue, or send a
+            <span className="text-text-primary font-mono">@paulagentbot</span> in a GitHub issue, or send a
             message in Telegram to queue your first task.
           </p>
         </div>
