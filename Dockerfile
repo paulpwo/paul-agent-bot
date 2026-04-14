@@ -49,7 +49,15 @@ RUN npx esbuild src/workers/index.ts \
   --external:".prisma" \
   --tsconfig=tsconfig.json
 
-# ── Stage 3: runtime ───────────────────────────────────────────────────────────
+# ── Stage 3: gh binary downloader ──────────────────────────────────────────────
+# Download gh CLI tarball in a throwaway stage — binary only lands in runtime
+FROM debian:bookworm-slim AS gh-bin
+RUN apt-get update -qq && apt-get install -y --no-install-recommends curl ca-certificates \
+  && curl -fsSL https://github.com/cli/cli/releases/download/v2.89.0/gh_2.89.0_linux_amd64.tar.gz \
+     | tar xz -C /tmp \
+  && mv /tmp/gh_2.89.0_linux_amd64/bin/gh /usr/local/bin/gh
+
+# ── Stage 4: runtime ───────────────────────────────────────────────────────────
 # Minimal production image — only the standalone output
 FROM node:20-slim AS runtime
 
@@ -61,16 +69,17 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Default workspace base — can be overridden at runtime via env or compose
 ENV WORKSPACE_BASE=/data/workspaces
 
-# Install runtime dependencies: git + gh CLI (repo ops) + claude CLI (agent runner)
+# Install git (minimal — purge docs/perl after) + claude CLI
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \
     git \
     ca-certificates \
-    curl \
-  && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
-  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cli.list \
-  && apt-get update -qq && apt-get install -y --no-install-recommends gh \
+  && apt-get purge -y --auto-remove git-man \
+  && rm -rf /usr/share/doc/git /usr/share/man \
   && npm install -g @anthropic-ai/claude-code \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Copy gh binary from downloader stage — no curl/keyring overhead in final image
+COPY --from=gh-bin /usr/local/bin/gh /usr/bin/gh
 
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs \
