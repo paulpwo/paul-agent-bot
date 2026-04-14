@@ -2,7 +2,24 @@ import { db } from "@/lib/db/client"
 import { registerRepoWorker } from "@/lib/queue/registry"
 import { processTask } from "./task-worker"
 
+async function recoverStuckTasks(): Promise<void> {
+  // On startup, any task left in RUNNING state has no active worker behind it.
+  // Mark them FAILED so the UI doesn't show infinite spinners.
+  const stuck = await db.task.updateMany({
+    where: { status: "RUNNING" },
+    data: {
+      status: "FAILED",
+      errorMessage: "Worker restarted while task was running. Please retry.",
+    },
+  })
+  if (stuck.count > 0) {
+    console.log(`[workers] Recovered ${stuck.count} stuck RUNNING task(s) → FAILED`)
+  }
+}
+
 export async function startWorkers(): Promise<void> {
+  await recoverStuckTasks()
+
   // Load all enabled repos and register a BullMQ worker for each
   const repos = await db.repo.findMany({ where: { enabled: true } })
 
