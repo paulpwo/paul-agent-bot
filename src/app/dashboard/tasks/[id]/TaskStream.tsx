@@ -3,6 +3,11 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 
+interface StreamLine {
+  type: "text" | "tool" | "error"
+  content: string
+}
+
 interface Props {
   taskId: string
   initialStatus: string
@@ -10,7 +15,8 @@ interface Props {
 
 export default function TaskStream({ taskId, initialStatus }: Props) {
   const router = useRouter()
-  const [lines, setLines] = useState<string[]>([])
+  const [lines, setLines] = useState<StreamLine[]>([])
+  const [activeTool, setActiveTool] = useState<string | null>(null)
   const [status, setStatus] = useState(initialStatus)
   const [cancelling, setCancelling] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -24,15 +30,35 @@ export default function TaskStream({ taskId, initialStatus }: Props) {
 
     es.onmessage = (e) => {
       try {
-        const event = JSON.parse(e.data as string) as { type: string; text?: string; message?: string }
+        const event = JSON.parse(e.data as string) as {
+          type: string
+          text?: string
+          tool?: string
+          input?: unknown
+          message?: string
+        }
+
         if (event.type === "token" && event.text) {
-          setLines((prev) => [...prev, event.text!])
+          setActiveTool(null)
+          setLines((prev) => {
+            // Append text to the last text line if possible, otherwise add new
+            const last = prev[prev.length - 1]
+            if (last?.type === "text") {
+              return [...prev.slice(0, -1), { type: "text", content: last.content + event.text! }]
+            }
+            return [...prev, { type: "text", content: event.text! }]
+          })
+        } else if (event.type === "tool_use" && event.tool) {
+          setActiveTool(event.tool)
+          setLines((prev) => [...prev, { type: "tool", content: event.tool! }])
         } else if (event.type === "done") {
+          setActiveTool(null)
           setStatus("COMPLETED")
           es.close()
         } else if (event.type === "error") {
+          setActiveTool(null)
           setStatus("FAILED")
-          setLines((prev) => [...prev, `\nError: ${event.message ?? "unknown"}`])
+          setLines((prev) => [...prev, { type: "error", content: event.message ?? "Unknown error" }])
           es.close()
         }
       } catch { /* ignore */ }
@@ -56,12 +82,40 @@ export default function TaskStream({ taskId, initialStatus }: Props) {
 
   return (
     <div className="flex flex-col gap-3">
+      {/* Active tool indicator */}
+      {activeTool && (
+        <div className="flex items-center gap-2 text-xs text-amber-400">
+          <span className="animate-pulse">●</span>
+          <span className="font-mono">{activeTool}</span>
+        </div>
+      )}
+
       {/* Output box */}
-      <div className="rounded-lg bg-surface-raised border border-border-default p-4 font-mono text-sm text-text-primary min-h-48 max-h-[60vh] overflow-auto whitespace-pre-wrap">
+      <div className="rounded-lg bg-surface-raised border border-border-default p-4 font-mono text-sm min-h-48 max-h-[70vh] overflow-auto">
         {lines.length === 0 && !isTerminal && (
           <span className="text-text-muted animate-pulse">Waiting for output...</span>
         )}
-        {lines.join("")}
+        {lines.map((line, i) => {
+          if (line.type === "tool") {
+            return (
+              <div key={i} className="text-xs text-amber-500/70 py-0.5">
+                🔧 {line.content}
+              </div>
+            )
+          }
+          if (line.type === "error") {
+            return (
+              <div key={i} className="text-red-400 whitespace-pre-wrap mt-1">
+                {line.content}
+              </div>
+            )
+          }
+          return (
+            <span key={i} className="text-text-primary whitespace-pre-wrap">
+              {line.content}
+            </span>
+          )
+        })}
         <div ref={bottomRef} />
       </div>
 

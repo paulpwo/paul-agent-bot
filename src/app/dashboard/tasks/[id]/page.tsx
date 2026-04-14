@@ -46,7 +46,7 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
   const duration = formatDuration(task.durationMs)
 
   return (
-    <div className="p-6 max-w-4xl">
+    <div className="p-6 w-full max-w-full">
       {/* Back link */}
       <Link
         href="/dashboard/tasks"
