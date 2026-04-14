@@ -17,7 +17,7 @@ services:
   paulagentbot:
     image: ${PAULAGENTBOT_IMAGE}
     restart: unless-stopped
-    command: ["sh", "-c", "npx prisma migrate deploy && node server.js"]
+    command: ["sh", "-c", "node node_modules/prisma/build/index.js migrate deploy && node server.js"]
     env_file: .env
     depends_on:
       redis:

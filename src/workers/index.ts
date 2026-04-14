@@ -50,3 +50,8 @@ export async function startWorkers(): Promise<void> {
     process.exit(0)
   })
 }
+
+startWorkers().catch((err) => {
+  console.error("[workers] Fatal error:", err)
+  process.exit(1)
+})
