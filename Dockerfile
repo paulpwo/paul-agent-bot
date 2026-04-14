@@ -84,6 +84,10 @@ COPY --from=gh-bin /usr/local/bin/gh /usr/bin/gh
 RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 --ingroup nodejs nextjs
 
+# Allow uid 1001 (nextjs) to traverse /root so it can read the bind-mounted ~/.claude credentials.
+# The worker spawns claude as uid 1001 to satisfy --dangerously-skip-permissions; HOME stays /root.
+RUN chmod 755 /root
+
 # Copy the standalone Next.js build
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
