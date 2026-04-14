@@ -141,6 +141,104 @@ docker exec paulagentbot-paulagentbot-worker-1 chown -R 1001:1001 /data/workspac
 
 ---
 
+## 11. Claude auth — `CLAUDE_CODE_OAUTH_TOKEN` ignored, agent exits silently
+
+**Symptom:** Tasks show RUNNING in the dashboard but the agent produces no output and exits with code 0 (no error, no response).
+
+**Cause (three compounding issues):**
+
+1. **Wrong variable name.** The OAuth token (`sk-ant-oat01-...`) was stored as `ANTHROPIC_API_KEY`. Claude Code CLI ignores it there and exits silently without authenticating.
+
+2. **Wrong variable name (attempt 2).** Switching to `ANTHROPIC_AUTH_TOKEN` makes the CLI bypass the login screen, but then sends the token directly to `api.anthropic.com` as a Bearer token, which returns `401 — OAuth authentication is currently not supported`. The `sk-ant-oat01-` format is for the Claude.ai OAuth flow, not the raw Anthropic API.
+
+3. **HOME pointed to a read-only directory.** `HOME=/root` pointed to the bind-mounted `.claude` directory (`read_only: true`, empty). Claude Code tries to write session state and settings there. When it can't, it exits silently with code 0.
+
+**Fix:**
+
+In `/home/ubuntu/paulagentbot/.env`:
+```bash
+# WRONG — these will fail
+ANTHROPIC_API_KEY=sk-ant-oat01-...      # wrong var name for OAuth token
+ANTHROPIC_AUTH_TOKEN=sk-ant-oat01-...  # 401 from api.anthropic.com
+
+# CORRECT
+CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-...
+```
+
+In `/home/ubuntu/paulagentbot/docker-compose.yml`, add `HOME: /tmp` to the worker environment:
+```yaml
+paulagentbot-worker:
+  environment:
+    HOME: /tmp   # writable — claude needs to create ~/.claude/ for session state
+```
+
+In `src/lib/agent/runner.ts`:
+```ts
+env: { ...process.env, HOME: "/tmp", ...(opts.extraEnv ?? {}) },
+```
+
+Remove the read-only `~/.claude` bind mount from both services — it's no longer needed since auth is via env var.
+
+**How to generate the token:**
+```bash
+claude setup-token   # run once locally, token is valid for 1 year
+```
+Then add the output to `.env` as `CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-...`.
+
+**Key rule:** `CLAUDE_CODE_OAUTH_TOKEN` requires a writable HOME. Claude Code writes `.claude/` for session state. Point HOME at any writable directory (`/tmp` works for containers).
+
+---
+
+## 12. Disk full on EC2 — Docker image pull silently fails
+
+**Symptom:** GitHub Actions deploy shows "success" but the running container still has the old image SHA.
+
+**Cause:** The EC2 root volume fills up with accumulated Docker images and build cache. `docker compose pull` fails silently when there's no space, and `docker compose up -d` starts the old cached image without error.
+
+**Diagnosis:**
+```bash
+df -h /          # check free space
+docker system df  # show image/cache sizes
+```
+
+**Fix:**
+```bash
+docker image prune -a -f    # remove unused images (~10GB freed)
+docker builder prune -a -f  # remove build cache (~4GB freed)
+# Then retry the pull
+docker compose pull && docker compose up -d --remove-orphans
+```
+
+**Prevention:** The deploy script already runs `docker image prune -f` (dangling only). Change to `docker image prune -a -f --filter "until=72h"` to also remove old tagged images after 72h.
+
+---
+
+## 13. BullMQ stale lock blocks queue — worker starts but processes no jobs
+
+**Symptom:** Worker starts ("Started 1 repo worker"), tasks are QUEUED in the database, but nothing gets processed. No agent logs appear.
+
+**Cause:** When the worker process is killed mid-job (container restart, OOM, disk full), BullMQ leaves the job in the `active` list with a lock key (`bull:<queue>:<jobId>:lock`). On restart, the new worker sees a job "in progress" and waits. With `concurrency: 1`, all new jobs queue behind the ghost job indefinitely.
+
+**Diagnosis:**
+```bash
+# Check active vs wait queues in Redis
+docker exec paulagentbot-redis-1 redis-cli LRANGE 'bull:repo.paulpwo.portfolio:active' 0 -1
+docker exec paulagentbot-redis-1 redis-cli LRANGE 'bull:repo.paulpwo.portfolio:wait' 0 -1
+docker exec paulagentbot-redis-1 redis-cli KEYS 'bull:repo.paulpwo.portfolio:*:lock'
+```
+
+If there's a job in `active` with a stale lock, that's the ghost.
+
+**Fix — restart the worker:**
+```bash
+docker compose restart paulagentbot-worker
+```
+The `recoverStuckTasks()` function marks DB tasks as FAILED on startup, but does NOT clean BullMQ Redis state. A full restart lets the lock TTL expire and BullMQ's stalled-job checker clean it up.
+
+**Root cause fix needed:** `recoverStuckTasks()` in `src/workers/index.ts` should also drain stale BullMQ jobs from Redis on startup.
+
+---
+
 ## 9. EC2 `.env` variables lost after redeploy
 
 **Symptom:** After a GitHub Actions deploy, manually added env vars disappear.
