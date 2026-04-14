@@ -69,12 +69,11 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Default workspace base — can be overridden at runtime via env or compose
 ENV WORKSPACE_BASE=/data/workspaces
 
-# Install git (minimal — purge docs/perl after) + claude CLI
+# Install git + claude CLI. Delete man pages/docs manually (purge would remove git too on bookworm)
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \
     git \
     ca-certificates \
-  && apt-get purge -y --auto-remove git-man \
-  && rm -rf /usr/share/doc/git /usr/share/man \
+  && rm -rf /usr/share/man /usr/share/doc \
   && npm install -g @anthropic-ai/claude-code \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
