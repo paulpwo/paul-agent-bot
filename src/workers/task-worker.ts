@@ -22,9 +22,16 @@ export async function processTask(data: TaskJobData): Promise<void> {
     data: { status: "RUNNING" },
   })
 
+  const TASK_TIMEOUT_MS = 15 * 60 * 1000  // 15 minutes
+
   const startTime = Date.now()
   const abortController = new AbortController()
   activeAbortControllers.set(taskId, abortController)
+
+  // Auto-cancel after timeout
+  const timeoutHandle = setTimeout(() => {
+    abortController.abort(new Error(`Task exceeded ${TASK_TIMEOUT_MS / 60_000} minute timeout`))
+  }, TASK_TIMEOUT_MS)
 
   // Poll for external cancellation signal (from cancel API endpoint)
   const cancelPoller = setInterval(async () => {
@@ -167,6 +174,7 @@ Keep messages concise. Use Markdown for formatting if helpful. Do NOT send unsol
       },
     })
   } finally {
+    clearTimeout(timeoutHandle)
     clearInterval(cancelPoller)
     activeAbortControllers.delete(taskId)
     // Switch workspace back to default branch for next task
