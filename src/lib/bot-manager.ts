@@ -16,9 +16,8 @@ export async function startTelegramBot(): Promise<void> {
     const { createBot } = await import("@/bot/index")
     const bot = await createBot()
     currentBot = bot
+
     console.log("[bot-manager] Starting Telegram bot...")
-    // bot.start() runs the long-polling loop — intentionally not awaited.
-    // Attach .catch() so errors (e.g. 409 Conflict) are logged and don't crash the worker.
     bot.start({
       onStart: (info) => console.log(`[bot-manager] Bot @${info.username} running`),
     }).catch((err: unknown) => {
@@ -26,7 +25,7 @@ export async function startTelegramBot(): Promise<void> {
       currentBot = null
     })
   } catch (err) {
-    console.error("[bot-manager] Failed to start Telegram bot:", err)
+    console.error("[bot-manager] Failed to initialize Telegram bot:", err)
     currentBot = null
   } finally {
     isStarting = false
