@@ -1,24 +1,14 @@
-name: Deploy to ECS
+name: Deploy to EC2
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      environment:
-        description: "Target environment"
-        required: true
-        default: "prod"
-        type: choice
-        options: [prod, dev]
 
 env:
   AWS_REGION: us-east-1
-  ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}      # e.g. 123456789.dkr.ecr.us-east-1.amazonaws.com
+  ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
   ECR_REPOSITORY: paulagentbot
-  ECS_CLUSTER: paulagentbot-prod                       # matches terraform project-environment
-  ECS_SERVICE_WEB: paulagentbot-prod-web
-  ECS_SERVICE_WORKER: paulagentbot-prod-worker
 
 jobs:
   deploy:
@@ -39,7 +29,6 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
-          # role-session-name is optional but useful for CloudTrail
           role-session-name: GitHubActions-${{ github.run_id }}
 
       # ── Log in to ECR ─────────────────────────────────────────────────────────
@@ -52,7 +41,6 @@ jobs:
         id: build-image
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          # Tag with both the commit SHA (immutable) and latest (for convenience)
           IMAGE_TAG: sha-${{ github.sha }}
         run: |
           docker build \
@@ -64,67 +52,39 @@ jobs:
           docker push "$REGISTRY/$ECR_REPOSITORY:latest"
           echo "image=$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
 
-      # ── Update web task definition ────────────────────────────────────────────
-      - name: Get current web task definition
-        id: get-web-taskdef
-        run: |
-          aws ecs describe-task-definition \
-            --task-definition paulagentbot-prod-web \
-            --query taskDefinition \
-            --output json > /tmp/web-taskdef.json
-          echo "taskdef-file=/tmp/web-taskdef.json" >> "$GITHUB_OUTPUT"
-
-      - name: Update web task definition with new image
-        id: update-web-taskdef
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
+      # ── Deploy to EC2 via SSH ─────────────────────────────────────────────────
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1
+        env:
+          ECR_REGISTRY: ${{ env.ECR_REGISTRY }}
+          AWS_REGION: ${{ env.AWS_REGION }}
+          IMAGE_TAG: sha-${{ github.sha }}
         with:
-          task-definition: /tmp/web-taskdef.json
-          container-name: web
-          image: ${{ steps.build-image.outputs.image }}
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: ECR_REGISTRY,AWS_REGION,IMAGE_TAG,ECR_REPOSITORY
+          script: |
+            # Authenticate Docker with ECR
+            aws ecr get-login-password --region $AWS_REGION \
+              | docker login --username AWS --password-stdin $ECR_REGISTRY
 
-      # ── Update worker task definition ─────────────────────────────────────────
-      - name: Get current worker task definition
-        id: get-worker-taskdef
-        run: |
-          aws ecs describe-task-definition \
-            --task-definition paulagentbot-prod-worker \
-            --query taskDefinition \
-            --output json > /tmp/worker-taskdef.json
-          echo "taskdef-file=/tmp/worker-taskdef.json" >> "$GITHUB_OUTPUT"
+            # Update image reference and restart
+            cd /home/ubuntu/paulagentbot
+            export PAULAGENTBOT_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+            sed -i "s|PAULAGENTBOT_IMAGE=.*|PAULAGENTBOT_IMAGE=$PAULAGENTBOT_IMAGE|" .env || \
+              echo "PAULAGENTBOT_IMAGE=$PAULAGENTBOT_IMAGE" >> .env
 
-      - name: Update worker task definition with new image
-        id: update-worker-taskdef
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: /tmp/worker-taskdef.json
-          container-name: worker
-          image: ${{ steps.build-image.outputs.image }}
+            docker compose pull
+            docker compose up -d --remove-orphans
 
-      # ── Deploy web service ────────────────────────────────────────────────────
-      - name: Deploy web service
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: ${{ steps.update-web-taskdef.outputs.task-definition }}
-          service: ${{ env.ECS_SERVICE_WEB }}
-          cluster: ${{ env.ECS_CLUSTER }}
-          wait-for-service-stability: true
-          # Circuit breaker will auto-rollback on failure (configured in Terraform)
-
-      # ── Deploy worker service ─────────────────────────────────────────────────
-      - name: Deploy worker service
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: ${{ steps.update-worker-taskdef.outputs.task-definition }}
-          service: ${{ env.ECS_SERVICE_WORKER }}
-          cluster: ${{ env.ECS_CLUSTER }}
-          wait-for-service-stability: true
+            # Clean up old images (keep last 3)
+            docker image prune -f
 
       # ── Summary ───────────────────────────────────────────────────────────────
       - name: Deployment summary
         run: |
           echo "## Deployment Complete" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Service | Image |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|---------|-------|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| paulagentbot-web | \`${{ steps.build-image.outputs.image }}\` |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| paulagentbot-worker | \`${{ steps.build-image.outputs.image }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Image:** \`${{ steps.build-image.outputs.image }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Host:** ${{ secrets.EC2_HOST }}" >> "$GITHUB_STEP_SUMMARY"
