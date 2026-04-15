@@ -37,25 +37,20 @@ export async function setSettingJson(key: string, value: unknown): Promise<void>
   await setSetting(key, JSON.stringify(value))
 }
 
-// Known setting keys (type-safe access)
+// Known setting keys (type-safe access).
+// NOTE: TELEGRAM_BOT_TOKEN and GitHub App/OAuth keys are intentionally absent —
+// they are read exclusively from process.env, never stored in the DB.
 export const SETTINGS_KEYS = {
-  TELEGRAM_BOT_TOKEN: "telegram.botToken",
   SLACK_BOT_TOKEN: "slack.botToken",
   SLACK_SIGNING_SECRET: "slack.signingSecret",
   SLACK_TEAM_ID: "slack.teamId",
-  GITHUB_OAUTH_CLIENT_ID: "github.oauthClientId",
-  GITHUB_OAUTH_CLIENT_SECRET: "github.oauthClientSecret",
   ALLOWLIST: "auth.allowlist",           // JSON: string[]
-  GITHUB_APP_WEBHOOK_SECRET: "github.webhookSecret",
   SENDGRID_API_KEY: "email.sendgridApiKey",
   EMAIL_FROM_ADDRESS: "email.fromAddress",
   GITHUB_RATE_COMMENTS_PER_MINUTE: "github.rateLimitCommentsPerMinute",
   GITHUB_RATE_TASKS_PER_DAY: "github.rateLimitTasksPerDay",
-  // Notifications
-  NOTIF_TELEGRAM_ENABLED:   "notifications.telegramEnabled",
+  // Notifications (Telegram handled natively by grammy bot — no config needed here)
   NOTIF_SLACK_ENABLED:      "notifications.slackEnabled",
-  NOTIF_TELEGRAM_BOT_TOKEN: "notifications.telegramBotToken",
-  NOTIF_TELEGRAM_CHAT_ID:   "notifications.telegramChatId",
   NOTIF_SLACK_CHANNEL_ID:   "notifications.slackChannelId",
   NOTIF_EVENTS:             "notifications.events",
 } as const

@@ -4,10 +4,6 @@ import { getSetting, setSetting, SETTINGS_KEYS } from "@/lib/settings"
 
 // Keys that are sensitive and should be masked in responses
 const SENSITIVE_KEYS = new Set<string>([
-  SETTINGS_KEYS.GITHUB_APP_WEBHOOK_SECRET,
-  SETTINGS_KEYS.GITHUB_OAUTH_CLIENT_SECRET,
-  SETTINGS_KEYS.TELEGRAM_BOT_TOKEN,
-  SETTINGS_KEYS.NOTIF_TELEGRAM_BOT_TOKEN,
   SETTINGS_KEYS.SLACK_BOT_TOKEN,
 ])
 
@@ -22,70 +18,20 @@ export function maskValue(value: string): string {
 
 /**
  * All known settings keys with metadata for the UI.
+ * GitHub App, GitHub OAuth, and Telegram keys are intentionally excluded —
+ * they are configured via environment variables only, not the Settings DB.
  */
 const ALL_SETTINGS_META: Array<{
   key: string
   label: string
   section: string
   masked: boolean
-  envFallback?: string
   placeholder?: string
   disabled?: boolean
   phase?: string
   type?: "toggle" | "multiselect"
 }> = [
-  // Section 1 — GitHub App
-  {
-    key: "github.appId",
-    label: "GitHub App ID",
-    section: "github-app",
-    masked: false,
-    envFallback: "GITHUB_APP_ID",
-    placeholder: "123456",
-  },
-  {
-    key: SETTINGS_KEYS.GITHUB_APP_WEBHOOK_SECRET,
-    label: "Webhook Secret",
-    section: "github-app",
-    masked: true,
-    envFallback: "GITHUB_APP_WEBHOOK_SECRET",
-    placeholder: "whsec_...",
-  },
-  {
-    key: "github.botUsername",
-    label: "Bot Username",
-    section: "github-app",
-    masked: false,
-    envFallback: "GITHUB_APP_BOT_USERNAME",
-    placeholder: "paulagentbot[bot]",
-  },
-  // Section 2 — GitHub OAuth
-  {
-    key: SETTINGS_KEYS.GITHUB_OAUTH_CLIENT_ID,
-    label: "OAuth Client ID",
-    section: "github-oauth",
-    masked: false,
-    envFallback: "GITHUB_CLIENT_ID",
-    placeholder: "Iv1.abc...",
-  },
-  {
-    key: SETTINGS_KEYS.GITHUB_OAUTH_CLIENT_SECRET,
-    label: "OAuth Client Secret",
-    section: "github-oauth",
-    masked: true,
-    envFallback: "GITHUB_CLIENT_SECRET",
-    placeholder: "••••••••",
-  },
-  // Section 3 — Telegram
-  {
-    key: SETTINGS_KEYS.TELEGRAM_BOT_TOKEN,
-    label: "Bot Token",
-    section: "telegram",
-    masked: true,
-    envFallback: "TELEGRAM_BOT_TOKEN",
-    placeholder: "123456:ABC-...",
-  },
-  // Section 4 — Slack (Phase 4)
+  // Section 1 — Slack (Phase 4)
   {
     key: SETTINGS_KEYS.SLACK_BOT_TOKEN,
     label: "Bot Token",
@@ -95,7 +41,7 @@ const ALL_SETTINGS_META: Array<{
     disabled: true,
     phase: "Phase 4",
   },
-  // Section 5 — Auth Allowlist
+  // Section 2 — Auth Allowlist
   {
     key: SETTINGS_KEYS.ALLOWLIST,
     label: "Allowed GitHub Logins",
@@ -103,7 +49,7 @@ const ALL_SETTINGS_META: Array<{
     masked: false,
     placeholder: "alice, bob, charlie",
   },
-  // Section 6 — GitHub Rate Limits
+  // Section 3 — GitHub Rate Limits
   {
     key: SETTINGS_KEYS.GITHUB_RATE_COMMENTS_PER_MINUTE,
     label: "Max comments per thread per minute",
@@ -118,34 +64,13 @@ const ALL_SETTINGS_META: Array<{
     masked: false,
     placeholder: "100",
   },
-  // Section 7 — Notifications
-  {
-    key: SETTINGS_KEYS.NOTIF_TELEGRAM_BOT_TOKEN,
-    label: "Notification Bot Token",
-    section: "notifications",
-    masked: true,
-    placeholder: "123456:ABC-... (must be different from Telegram channel bot)",
-  },
-  {
-    key: SETTINGS_KEYS.NOTIF_TELEGRAM_ENABLED,
-    label: "Telegram notifications",
-    section: "notifications",
-    masked: false,
-    type: "toggle" as const,
-  },
+  // Section 4 — Notifications (Telegram is handled natively by the grammy bot)
   {
     key: SETTINGS_KEYS.NOTIF_SLACK_ENABLED,
     label: "Slack notifications",
     section: "notifications",
     masked: false,
     type: "toggle" as const,
-  },
-  {
-    key: SETTINGS_KEYS.NOTIF_TELEGRAM_CHAT_ID,
-    label: "Telegram Chat ID",
-    section: "notifications",
-    masked: false,
-    placeholder: "Set via /notify command in Telegram",
   },
   {
     key: SETTINGS_KEYS.NOTIF_SLACK_CHANNEL_ID,
@@ -181,7 +106,7 @@ async function buildSettingsPayload(): Promise<SettingEntry[]> {
   const result: SettingEntry[] = []
 
   for (const meta of ALL_SETTINGS_META) {
-    // Try DB first
+    // All remaining settings live only in the DB (no env fallbacks needed here)
     let dbValue: string | null = null
     try {
       dbValue = await getSetting(meta.key)
@@ -189,14 +114,8 @@ async function buildSettingsPayload(): Promise<SettingEntry[]> {
       // If encryption key not set, skip DB
     }
 
-    // Fall back to env var
-    let envValue: string | null = null
-    if (meta.envFallback) {
-      envValue = process.env[meta.envFallback] ?? null
-    }
-
-    const rawValue = dbValue ?? envValue
-    const source: "db" | "env" | null = dbValue ? "db" : envValue ? "env" : null
+    const rawValue = dbValue
+    const source: "db" | "env" | null = dbValue ? "db" : null
     const displayValue = rawValue
       ? meta.masked
         ? maskValue(rawValue)
@@ -249,24 +168,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "This setting is not yet available" }, { status: 403 })
   }
 
-  // Reject token collision: notifications bot and channel bot must be different
-  if (
-    key === SETTINGS_KEYS.NOTIF_TELEGRAM_BOT_TOKEN ||
-    key === SETTINGS_KEYS.TELEGRAM_BOT_TOKEN
-  ) {
-    const otherKey =
-      key === SETTINGS_KEYS.NOTIF_TELEGRAM_BOT_TOKEN
-        ? SETTINGS_KEYS.TELEGRAM_BOT_TOKEN
-        : SETTINGS_KEYS.NOTIF_TELEGRAM_BOT_TOKEN
-    const otherToken = await getSetting(otherKey).catch(() => null)
-    if (otherToken && otherToken === value) {
-      return NextResponse.json(
-        { error: "Notification bot and channel bot must use different tokens — two bots polling the same token causes a 409 conflict." },
-        { status: 400 }
-      )
-    }
-  }
-
   // Special handling for allowlist: accept comma-separated and convert to JSON array
   let storeValue = value
   if (key === SETTINGS_KEYS.ALLOWLIST) {
@@ -278,16 +179,6 @@ export async function POST(req: NextRequest) {
   }
 
   await setSetting(key, storeValue)
-
-  // Hot-reload Telegram bot when token changes
-  if (key === SETTINGS_KEYS.TELEGRAM_BOT_TOKEN) {
-    try {
-      const { restartTelegramBot } = await import("@/lib/bot-manager")
-      void restartTelegramBot()
-    } catch (err) {
-      console.error("[settings] Failed to restart Telegram bot:", err)
-    }
-  }
 
   // Return masked display value
   const displayValue = SENSITIVE_KEYS.has(key) ? maskValue(storeValue) : storeValue

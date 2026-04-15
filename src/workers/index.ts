@@ -2,6 +2,9 @@ import { db } from "@/lib/db/client"
 import { registerRepoWorker } from "@/lib/queue/registry"
 import { enqueueTask } from "@/lib/queue/producer"
 import { processTask } from "./task-worker"
+import { createLogger } from "@/lib/logger"
+
+const logger = createLogger("workers")
 
 async function recoverStuckTasks(): Promise<void> {
   // On startup, any task left in RUNNING state has no active worker behind it.
@@ -14,7 +17,7 @@ async function recoverStuckTasks(): Promise<void> {
     },
   })
   if (stuck.count > 0) {
-    console.log(`[workers] Recovered ${stuck.count} stuck RUNNING task(s) → FAILED`)
+    logger.info(`Recovered ${stuck.count} stuck RUNNING task(s) → FAILED`)
   }
 
   // On startup, re-enqueue any QUEUED tasks whose BullMQ jobs may have been lost
@@ -34,7 +37,7 @@ async function recoverStuckTasks(): Promise<void> {
     })
   }
   if (orphaned.length > 0) {
-    console.log(`[workers] Re-enqueued ${orphaned.length} orphaned QUEUED task(s)`)
+    logger.info(`Re-enqueued ${orphaned.length} orphaned QUEUED task(s)`)
   }
 }
 
@@ -49,14 +52,18 @@ export async function startWorkers(): Promise<void> {
   }
 
   const count = repos.length
-  console.log(`[workers] Started ${count} repo worker${count === 1 ? "" : "s"}`)
+  logger.info(`Started ${count} repo worker${count === 1 ? "" : "s"}`)
 
-  // Start Telegram bot via BotManager (supports hot-reload from Settings)
-  try {
-    const { startTelegramBot } = await import("@/lib/bot-manager")
-    await startTelegramBot()
-  } catch (err) {
-    console.error("[workers] Failed to start Telegram bot:", err)
+  // Start Telegram bot via BotManager — only if TELEGRAM_BOT_TOKEN is set in env
+  if (process.env.TELEGRAM_BOT_TOKEN) {
+    try {
+      const { startTelegramBot } = await import("@/lib/bot-manager")
+      await startTelegramBot()
+    } catch (err) {
+      logger.error("Failed to start Telegram bot:", err)
+    }
+  } else {
+    logger.info("TELEGRAM_BOT_TOKEN not set — skipping Telegram bot")
   }
 
   // Start Slack bot (only if token is configured)
@@ -65,12 +72,12 @@ export async function startWorkers(): Promise<void> {
     const slackToken =
       (await getSetting(SETTINGS_KEYS.SLACK_BOT_TOKEN)) ?? process.env.SLACK_BOT_TOKEN
     if (slackToken) {
-      console.log("[workers] Slack bot token found — Slack webhook adapter is active")
+      logger.info("Slack bot token found — Slack webhook adapter is active")
     } else {
-      console.log("[workers] No Slack bot token configured — skipping Slack initialization")
+      logger.info("No Slack bot token configured — skipping Slack initialization")
     }
   } catch (err) {
-    console.error("[workers] Failed to initialize Slack bot:", err)
+    logger.error("Failed to initialize Slack bot:", err)
   }
 
   // Start cron scheduler
@@ -78,7 +85,7 @@ export async function startWorkers(): Promise<void> {
     const { startScheduler } = await import("@/lib/scheduler")
     await startScheduler()
   } catch (err) {
-    console.error("[workers] Failed to start scheduler:", err)
+    logger.error("Failed to start scheduler:", err)
   }
 
   // Graceful shutdown — stop Telegram bot first so the long-poll is released
@@ -94,7 +101,11 @@ export async function startWorkers(): Promise<void> {
   })
 }
 
-startWorkers().catch((err) => {
-  console.error("[workers] Fatal error:", err)
-  process.exit(1)
-})
+// Auto-start only when this file is run directly as a worker entrypoint (WORKER_ONLY=true).
+// When imported by instrumentation.ts, startWorkers() is called explicitly — no auto-run needed.
+if (process.env.WORKER_ONLY === "true") {
+  startWorkers().catch((err) => {
+    logger.error("Fatal error:", err)
+    process.exit(1)
+  })
+}

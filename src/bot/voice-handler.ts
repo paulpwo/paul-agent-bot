@@ -9,14 +9,12 @@ import { getScopeKey, getOrCreateSession } from "./session-scope"
 import { enqueueTask } from "@/lib/queue/producer"
 import { db } from "@/lib/db/client"
 import { redis } from "@/lib/redis/client"
-import { getSetting, SETTINGS_KEYS } from "@/lib/settings"
-
 const exec = promisify(execFile)
 
 // Download a Telegram file to a local temp path
 async function downloadFile(fileId: string): Promise<string> {
-  const token = await getSetting(SETTINGS_KEYS.TELEGRAM_BOT_TOKEN)
-  if (!token) throw new Error("TELEGRAM_BOT_TOKEN not configured")
+  const token = process.env.TELEGRAM_BOT_TOKEN
+  if (!token) throw new Error("TELEGRAM_BOT_TOKEN environment variable not set")
 
   // Resolve file_path via Telegram API
   const metaRes = await fetch(`https://api.telegram.org/bot${token}/getFile?file_id=${fileId}`)

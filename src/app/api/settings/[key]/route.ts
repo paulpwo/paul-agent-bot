@@ -4,9 +4,6 @@ import { getSetting, setSetting, SETTINGS_KEYS } from "@/lib/settings"
 import { maskValue } from "@/app/api/settings/route"
 
 const SENSITIVE_KEYS = new Set<string>([
-  SETTINGS_KEYS.GITHUB_APP_WEBHOOK_SECRET,
-  SETTINGS_KEYS.GITHUB_OAUTH_CLIENT_SECRET,
-  SETTINGS_KEYS.TELEGRAM_BOT_TOKEN,
   SETTINGS_KEYS.SLACK_BOT_TOKEN,
 ])
 

@@ -1,5 +1,6 @@
 "use client"
 
+import { Highlight, themes } from "prism-react-renderer"
 import type { StreamEvent } from "@/lib/redis/pubsub"
 import { ToolCallCard, extractChangedFiles } from "./ToolCallCard"
 
@@ -66,6 +67,24 @@ function parseInline(text: string, keyPrefix: string): React.ReactNode[] {
   return parts.length > 0 ? parts : [<span key={`${keyPrefix}-raw`}>{text}</span>]
 }
 
+/** Map language aliases and unsupported langs to Prism equivalents */
+function normalizeLang(lang: string): string {
+  const map: Record<string, string> = {
+    // Aliases
+    ts: "typescript", tsx: "tsx", js: "javascript", jsx: "jsx",
+    sh: "bash", shell: "bash", zsh: "bash",
+    py: "python", rb: "ruby", rs: "rust",
+    yml: "yaml", md: "markdown",
+    // No-Prism langs → closest equivalent
+    astro: "markup",   // astro = HTML superset
+    vue: "markup",
+    svelte: "markup",
+    prisma: "typescript",
+    graphql: "graphql",
+  }
+  return map[lang.toLowerCase()] ?? (lang.toLowerCase() || "markup")
+}
+
 /** Parses block-level markdown: headings, lists, code blocks, hr, paragraphs */
 function MarkdownContent({ content }: { content: string }) {
   const lines = content.split("\n")
@@ -78,23 +97,38 @@ function MarkdownContent({ content }: { content: string }) {
 
     // Fenced code block
     if (line.startsWith("```")) {
-      const lang = line.slice(3).trim()
+      const rawLang = line.slice(3).trim()
+      const lang = normalizeLang(rawLang)
       const codeLines: string[] = []
       i++
       while (i < lines.length && !lines[i].startsWith("```")) {
         codeLines.push(lines[i])
         i++
       }
+      const code = codeLines.join("\n")
       elements.push(
         <div key={key} className="my-2.5 rounded-lg overflow-hidden border border-border-subtle/40">
-          {lang && (
+          {rawLang && (
             <div className="px-3 py-1 bg-surface-overlay/70 border-b border-border-subtle/40 text-[10px] font-mono text-text-muted uppercase tracking-wider">
-              {lang}
+              {rawLang}
             </div>
           )}
-          <pre className="bg-surface-base/70 px-4 py-3 overflow-x-auto text-[12px] font-mono text-text-primary leading-relaxed whitespace-pre">
-            <code>{codeLines.join("\n")}</code>
-          </pre>
+          <Highlight theme={themes.vsDark} code={code} language={lang}>
+            {({ style, tokens, getLineProps, getTokenProps }) => (
+              <pre
+                className="px-4 py-3 overflow-x-auto text-[12px] font-mono leading-relaxed whitespace-pre"
+                style={{ ...style, backgroundColor: "transparent", margin: 0 }}
+              >
+                {tokens.map((line, lineIdx) => (
+                  <div key={lineIdx} {...getLineProps({ line })}>
+                    {line.map((token, tokenIdx) => (
+                      <span key={tokenIdx} {...getTokenProps({ token })} />
+                    ))}
+                  </div>
+                ))}
+              </pre>
+            )}
+          </Highlight>
         </div>
       )
       i++ // skip closing ```
@@ -248,7 +282,7 @@ export function MessageBubble({ message, onApprove }: MessageBubbleProps) {
 
           {/* Content — rendered markdown */}
           {message.content ? (
-            <div>
+            <div className={message.status === "error" ? "text-red-400" : undefined}>
               <MarkdownContent content={message.content} />
               {isStreaming && <StreamingCursor />}
             </div>
@@ -261,7 +295,7 @@ export function MessageBubble({ message, onApprove }: MessageBubbleProps) {
           )}
 
           {/* Error */}
-          {message.status === "error" && (
+          {message.status === "error" && !message.content && (
             <span className="text-red-400 italic text-xs block mt-1">
               Something went wrong. Please try again.
             </span>

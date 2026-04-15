@@ -2,20 +2,8 @@ import { requireAuth } from "@/lib/auth/session"
 import { getSetting, SETTINGS_KEYS } from "@/lib/settings"
 import SettingsForm, { type SettingEntry } from "@/components/settings/SettingsForm"
 
-// Env fallback map: setting key → environment variable name
-const ENV_FALLBACKS: Record<string, string> = {
-  "github.appId": "GITHUB_APP_ID",
-  [SETTINGS_KEYS.GITHUB_APP_WEBHOOK_SECRET]: "GITHUB_APP_WEBHOOK_SECRET",
-  "github.botUsername": "GITHUB_APP_BOT_USERNAME",
-  [SETTINGS_KEYS.GITHUB_OAUTH_CLIENT_ID]: "GITHUB_CLIENT_ID",
-  [SETTINGS_KEYS.GITHUB_OAUTH_CLIENT_SECRET]: "GITHUB_CLIENT_SECRET",
-  [SETTINGS_KEYS.TELEGRAM_BOT_TOKEN]: "TELEGRAM_BOT_TOKEN",
-}
-
+// NOTE: GitHub App, GitHub OAuth, and Telegram keys are env-only — not in Settings DB.
 const SENSITIVE_KEYS = new Set<string>([
-  SETTINGS_KEYS.GITHUB_APP_WEBHOOK_SECRET,
-  SETTINGS_KEYS.GITHUB_OAUTH_CLIENT_SECRET,
-  SETTINGS_KEYS.TELEGRAM_BOT_TOKEN,
   SETTINGS_KEYS.SLACK_BOT_TOKEN,
 ])
 
@@ -34,21 +22,13 @@ const SETTINGS_DEFS: Array<{
   phase?: string
   type?: "toggle" | "multiselect"
 }> = [
-  { key: "github.appId", label: "GitHub App ID", section: "github-app", masked: false, placeholder: "123456" },
-  { key: SETTINGS_KEYS.GITHUB_APP_WEBHOOK_SECRET, label: "Webhook Secret", section: "github-app", masked: true, placeholder: "whsec_..." },
-  { key: "github.botUsername", label: "Bot Username", section: "github-app", masked: false, placeholder: "paulagentbot[bot]" },
-  { key: SETTINGS_KEYS.GITHUB_OAUTH_CLIENT_ID, label: "OAuth Client ID", section: "github-oauth", masked: false, placeholder: "Iv1.abc..." },
-  { key: SETTINGS_KEYS.GITHUB_OAUTH_CLIENT_SECRET, label: "OAuth Client Secret", section: "github-oauth", masked: true, placeholder: "••••••••" },
-  { key: SETTINGS_KEYS.TELEGRAM_BOT_TOKEN, label: "Bot Token", section: "telegram", masked: true, placeholder: "123456:ABC-..." },
   { key: SETTINGS_KEYS.SLACK_BOT_TOKEN, label: "Bot Token", section: "slack", masked: true, placeholder: "xoxb-...", disabled: true, phase: "Phase 4" },
   { key: SETTINGS_KEYS.ALLOWLIST, label: "Allowed GitHub Logins", section: "auth", masked: false, placeholder: "alice, bob, charlie" },
   { key: SETTINGS_KEYS.GITHUB_RATE_COMMENTS_PER_MINUTE, label: "Max comments per thread per minute", section: "github-rate-limits", masked: false, placeholder: "5" },
   { key: SETTINGS_KEYS.GITHUB_RATE_TASKS_PER_DAY, label: "Max GitHub tasks per day (global)", section: "github-rate-limits", masked: false, placeholder: "100" },
-  { key: "notifications.telegramEnabled", label: "Telegram notifications", section: "notifications", masked: false, type: "toggle" as const },
-  { key: "notifications.slackEnabled",    label: "Slack notifications",    section: "notifications", masked: false, type: "toggle" as const },
-  { key: "notifications.telegramChatId",  label: "Telegram Chat ID",       section: "notifications", masked: false, placeholder: "Set via /notify command in Telegram" },
-  { key: "notifications.slackChannelId",  label: "Slack Channel ID",       section: "notifications", masked: false, placeholder: "C0123456789" },
-  { key: "notifications.events",          label: "Notify on events",       section: "notifications", masked: false, type: "multiselect" as const },
+  { key: SETTINGS_KEYS.NOTIF_SLACK_ENABLED,    label: "Slack notifications",    section: "notifications", masked: false, type: "toggle" as const },
+  { key: SETTINGS_KEYS.NOTIF_SLACK_CHANNEL_ID,  label: "Slack Channel ID",       section: "notifications", masked: false, placeholder: "C0123456789" },
+  { key: SETTINGS_KEYS.NOTIF_EVENTS,             label: "Notify on events",       section: "notifications", masked: false, type: "multiselect" as const },
 ]
 
 async function loadSettings(): Promise<SettingEntry[]> {
@@ -62,10 +42,8 @@ async function loadSettings(): Promise<SettingEntry[]> {
       // ENCRYPTION_KEY not set, skip DB
     }
 
-    const envVar = ENV_FALLBACKS[def.key]
-    const envValue = envVar ? (process.env[envVar] ?? null) : null
-    const rawValue = dbValue ?? envValue
-    const source: "db" | "env" | null = dbValue ? "db" : envValue ? "env" : null
+    const rawValue = dbValue
+    const source: "db" | "env" | null = dbValue ? "db" : null
 
     let displayValue: string | null = null
     let clientValue: string | null = null

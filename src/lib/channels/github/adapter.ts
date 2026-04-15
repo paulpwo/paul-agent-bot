@@ -2,6 +2,9 @@ import { Octokit } from "@octokit/rest"
 import { redisSub, redis } from "@/lib/redis/client"
 import { STREAM_CHANNEL, setApprovalResult } from "@/lib/redis/pubsub"
 import type { StreamEvent } from "@/lib/redis/pubsub"
+import { createLogger } from "@/lib/logger"
+
+const logger = createLogger("github-adapter")
 
 function createOctokit(installationToken: string): Octokit {
   return new Octokit({ auth: installationToken })
@@ -87,7 +90,7 @@ export async function streamToGitHub(opts: {
           body: buffer,
         })
       } catch (err) {
-        console.error("[github-adapter] Failed to edit comment:", err)
+        logger.error("Failed to edit comment:", err)
       }
     }
 
@@ -124,7 +127,7 @@ export async function streamToGitHub(opts: {
           reject(new Error(event.message))
         }
       } catch (err) {
-        console.error("[github-adapter] Stream parse error:", err)
+        logger.error("Stream parse error:", err)
       }
     }
 

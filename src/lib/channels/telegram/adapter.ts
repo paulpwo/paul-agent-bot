@@ -2,6 +2,9 @@ import { redisSub, redis } from "@/lib/redis/client"
 import { STREAM_CHANNEL, setApprovalResult } from "@/lib/redis/pubsub"
 import type { StreamEvent } from "@/lib/redis/pubsub"
 import { Bot, InlineKeyboard } from "grammy"
+import { createLogger } from "@/lib/logger"
+
+const logger = createLogger("tg-adapter")
 
 // Rate limit: Telegram allows ~1 edit/second per message
 const EDIT_INTERVAL_MS = 1000
@@ -33,7 +36,7 @@ export async function streamToTelegram(opts: StreamToTelegramOpts): Promise<void
       } catch (err: unknown) {
         // Ignore "message is not modified" Telegram error (400)
         if ((err as { error_code?: number })?.error_code !== 400) {
-          console.error("[tg-adapter] editMessageText failed:", err)
+          logger.error("editMessageText failed:", err)
         }
       }
     }
@@ -75,7 +78,7 @@ export async function streamToTelegram(opts: StreamToTelegramOpts): Promise<void
             break
         }
       } catch (err) {
-        console.error("[tg-adapter] Stream parse error:", err)
+        logger.error("Stream parse error:", err)
       }
     }
 

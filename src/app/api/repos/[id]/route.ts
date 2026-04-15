@@ -28,6 +28,18 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     },
   })
 
+  // Dynamically register worker when repo is enabled so tasks are picked up immediately
+  // without requiring a server restart.
+  if (body.enabled === true) {
+    try {
+      const { registerRepoWorker } = await import("@/lib/queue/registry")
+      const { processTask } = await import("@/workers/task-worker")
+      registerRepoWorker(`${updated.owner}/${updated.name}`, processTask)
+    } catch {
+      // Worker registry not available in this process (e.g. edge runtime) — safe to ignore
+    }
+  }
+
   return NextResponse.json({ ok: true, repo: updated })
 }
 

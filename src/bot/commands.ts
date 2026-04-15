@@ -2,7 +2,6 @@ import type { Bot } from "grammy"
 import type { BotContext } from "./index"
 import { db } from "@/lib/db/client"
 import { getScopeKey } from "./session-scope"
-import { setSetting, SETTINGS_KEYS } from "@/lib/settings"
 
 export function registerCommands(bot: Bot<BotContext>): void {
   // /repo <owner/name> — associate this chat/topic with a repo
@@ -86,19 +85,5 @@ export function registerCommands(bot: Bot<BotContext>): void {
   // /pr — open a PR for the last completed task (placeholder)
   bot.command("pr", async (ctx) => {
     await ctx.reply("PR creation is automatic when a task completes on a GitHub-triggered session. Manual PR from Telegram coming in a future update.")
-  })
-
-  // /notify [off] — register this chat for GitHub event notifications
-  bot.command("notify", async (ctx) => {
-    const arg = ctx.match?.trim().toLowerCase()
-    if (arg === "off") {
-      await setSetting(SETTINGS_KEYS.NOTIF_TELEGRAM_ENABLED, "false")
-      await ctx.reply("Telegram notifications disabled.")
-      return
-    }
-    const chatId = String(ctx.chat.id)
-    await setSetting(SETTINGS_KEYS.NOTIF_TELEGRAM_CHAT_ID, chatId)
-    await setSetting(SETTINGS_KEYS.NOTIF_TELEGRAM_ENABLED, "true")
-    await ctx.reply(`Telegram notifications enabled for this chat. Use /notify off to disable.`)
   })
 }

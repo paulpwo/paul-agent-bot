@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { createHmac, timingSafeEqual } from "crypto"
 import { getSetting, SETTINGS_KEYS } from "@/lib/settings"
 import { handleSlackEvent } from "@/lib/channels/slack/webhook-handler"
+import { createLogger } from "@/lib/logger"
+
+const logger = createLogger("slack-webhook")
 
 // Slack URL verification challenge type
 interface SlackChallenge {
@@ -39,7 +42,7 @@ async function verifySlackSignature(req: NextRequest, rawBody: Buffer): Promise<
     process.env.SLACK_SIGNING_SECRET
 
   if (!signingSecret) {
-    console.error("[slack-webhook] No signing secret configured")
+    logger.error("No signing secret configured")
     return false
   }
 
@@ -51,7 +54,7 @@ async function verifySlackSignature(req: NextRequest, rawBody: Buffer): Promise<
   // Reject requests older than 5 minutes (replay attack guard)
   const nowSeconds = Math.floor(Date.now() / 1000)
   if (Math.abs(nowSeconds - parseInt(timestamp, 10)) > 300) {
-    console.warn("[slack-webhook] Request timestamp too old — possible replay")
+    logger.warn("Request timestamp too old — possible replay")
     return false
   }
 
@@ -107,7 +110,7 @@ export async function POST(req: NextRequest) {
 
     // Fire-and-forget — respond 200 immediately (Slack requires < 3s response)
     handleSlackEvent(event, team_id).catch((err) =>
-      console.error("[slack-webhook] Handler error:", err)
+      logger.error("Handler error:", err)
     )
   }
 

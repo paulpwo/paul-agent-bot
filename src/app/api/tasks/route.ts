@@ -7,6 +7,7 @@ export async function GET(_req: NextRequest) {
   await requireAuth()
 
   const tasks = await db.task.findMany({
+    where: { channel: { not: "dashboard" } },
     orderBy: { createdAt: "desc" },
     take: 50,
   })

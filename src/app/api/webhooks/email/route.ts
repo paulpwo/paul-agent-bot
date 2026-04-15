@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import busboy from "busboy"
 import { Readable } from "stream"
 import { handleInboundEmail, type ParsedEmail } from "@/lib/channels/email/webhook-handler"
+import { createLogger } from "@/lib/logger"
+
+const logger = createLogger("email-webhook")
 
 // Extract Message-ID and In-Reply-To from raw headers string
 function extractHeader(headers: string, name: string): string | undefined {
@@ -76,7 +79,7 @@ export async function POST(req: NextRequest) {
   try {
     parsedEmail = await parseSendGridMultipart(req)
   } catch (err) {
-    console.error("[email-webhook] Multipart parse error:", err)
+    logger.error("Multipart parse error:", err)
     return NextResponse.json({ error: "Parse error" }, { status: 400 })
   }
 
@@ -86,13 +89,13 @@ export async function POST(req: NextRequest) {
 
   // Loop guard: ignore replies from our own sender address
   if (selfAddress && parsedEmail.from.toLowerCase().includes(selfAddress.toLowerCase())) {
-    console.log("[email-webhook] Skipping self-reply from:", parsedEmail.from)
+    logger.info("Skipping self-reply from:", parsedEmail.from)
     return NextResponse.json({ ok: true, skipped: "self-reply" })
   }
 
   // Fire-and-forget — return 200 immediately (SendGrid expects quick response)
   handleInboundEmail(parsedEmail).catch(err =>
-    console.error("[email-webhook] Handler error:", err),
+    logger.error("Handler error:", err),
   )
 
   return NextResponse.json({ ok: true })

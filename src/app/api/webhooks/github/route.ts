@@ -3,6 +3,9 @@ import { createHmac, timingSafeEqual } from "crypto"
 import { checkAndSetDelivery } from "@/lib/redis/pubsub"
 import { redis } from "@/lib/redis/client"
 import { handleWebhookEvent } from "@/lib/channels/github/webhook-handler"
+import { createLogger } from "@/lib/logger"
+
+const logger = createLogger("github-webhook")
 
 // Verify HMAC-SHA256 signature from GitHub
 async function verifySignature(req: NextRequest, rawBody: Buffer): Promise<boolean> {
@@ -44,7 +47,7 @@ export async function POST(req: NextRequest) {
 
   // Handle asynchronously — respond immediately (< 3s GitHub timeout)
   handleWebhookEvent(event, payload).catch(err =>
-    console.error("[github-webhook] Handler error:", err)
+    logger.error("Handler error:", err)
   )
 
   return NextResponse.json({ ok: true })

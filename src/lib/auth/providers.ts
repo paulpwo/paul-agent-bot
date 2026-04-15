@@ -2,25 +2,19 @@ import type { Provider } from "next-auth/providers/index"
 import CredentialsProvider from "next-auth/providers/credentials"
 import GitHubProvider from "next-auth/providers/github"
 import { db } from "@/lib/db/client"
-import { getSetting, SETTINGS_KEYS } from "@/lib/settings"
 
-// Bootstrap provider — active only when BOOTSTRAP_ADMIN is set AND DB has no GitHub OAuth credentials
+// Bootstrap provider — active only when BOOTSTRAP_ADMIN is set AND env OAuth creds are absent
 async function isBootstrapMode(): Promise<boolean> {
   if (!process.env.BOOTSTRAP_ADMIN) return false
-  const clientId = await getSetting(SETTINGS_KEYS.GITHUB_OAUTH_CLIENT_ID).catch(() => null)
-  return !clientId
+  return !process.env.GITHUB_OAUTH_CLIENT_ID
 }
 
 export async function getProviders(): Promise<Provider[]> {
   const providers: Provider[] = []
 
-  // GitHub OAuth provider — DB takes priority, env vars as fallback
-  const clientId =
-    (await getSetting(SETTINGS_KEYS.GITHUB_OAUTH_CLIENT_ID).catch(() => null)) ??
-    process.env.GITHUB_OAUTH_CLIENT_ID ?? null
-  const clientSecret =
-    (await getSetting(SETTINGS_KEYS.GITHUB_OAUTH_CLIENT_SECRET).catch(() => null)) ??
-    process.env.GITHUB_OAUTH_CLIENT_SECRET ?? null
+  // GitHub OAuth provider — read exclusively from environment variables
+  const clientId = process.env.GITHUB_OAUTH_CLIENT_ID ?? null
+  const clientSecret = process.env.GITHUB_OAUTH_CLIENT_SECRET ?? null
 
   if (clientId && clientSecret) {
     providers.push(

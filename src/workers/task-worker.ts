@@ -6,6 +6,9 @@ import { getAuthenticatedCloneUrl, getInstallationToken } from "@/lib/agent/toke
 import type { TaskJobData } from "@/lib/queue/producer"
 import { execFile } from "child_process"
 import { promisify } from "util"
+import { createLogger } from "@/lib/logger"
+
+const logger = createLogger("task-worker")
 
 const exec = promisify(execFile)
 
@@ -157,7 +160,7 @@ Keep messages concise. Use Markdown for formatting if helpful.`
       result.error?.includes("No conversation found with session ID") &&
       taskRecord?.sessionId
     ) {
-      console.warn(`[worker] Stale agentSessionId — clearing and retrying as fresh session`)
+      logger.warn(`Stale agentSessionId — clearing and retrying as fresh session`)
       await db.session.update({
         where: { id: taskRecord.sessionId },
         data: { agentSessionId: null },
@@ -193,7 +196,7 @@ Keep messages concise. Use Markdown for formatting if helpful.`
         `HEAD:${branchName}`,
       ], { cwd: workspacePath })
     } catch (pushErr) {
-      console.warn(`[worker] Push failed for ${repo} — task still marked COMPLETED:`, pushErr)
+      logger.warn(`Push failed for ${repo} — task still marked COMPLETED:`, pushErr)
     }
 
     const durationMs = Date.now() - startTime

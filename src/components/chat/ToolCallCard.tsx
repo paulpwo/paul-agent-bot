@@ -146,6 +146,28 @@ function SearchCard({ input }: { input: SearchInput }) {
   )
 }
 
+interface AgentInput {
+  description?: string
+  prompt?: string
+  subagent_type?: string
+}
+
+function AgentCard({ input, expanded }: { input: AgentInput; expanded: boolean }) {
+  const label = input.description ?? input.subagent_type ?? "sub-agent"
+  const detail = input.prompt ?? ""
+
+  return (
+    <>
+      <span className="text-text-secondary italic truncate flex-1 min-w-0">{label}</span>
+      {expanded && detail && (
+        <div className="px-3 pb-3 pt-2 border-t border-border-subtle/50 text-[11px] text-text-secondary leading-relaxed">
+          <p className="whitespace-pre-wrap break-words line-clamp-6">{trunc(detail, 400)}</p>
+        </div>
+      )}
+    </>
+  )
+}
+
 // ── meta per tool ─────────────────────────────────────────────────────────────
 
 interface ToolMeta {
@@ -163,6 +185,7 @@ function getToolMeta(tool: string): ToolMeta {
   if (t === "websearch" || t === "web_search" || t === "search") return { icon: "🔍", label: "Search", expandable: false }
   if (t === "glob" || t === "find_files") return { icon: "🗂️", label: "Glob", expandable: false }
   if (t === "grep") return { icon: "🔎", label: "Grep", expandable: false }
+  if (t === "agent") return { icon: "🤖", label: "Agent", expandable: true }
   return { icon: "🔧", label: tool, expandable: true }
 }
 
@@ -179,6 +202,7 @@ export function ToolCallCard({ toolCall, isLast, messageStatus }: ToolCallCardPr
   const isBash = tool === "bash" || tool === "computer" || tool === "execute_command"
   const isRead = tool === "read" || tool === "read_file" || tool === "view"
   const isSearch = tool === "websearch" || tool === "web_search" || tool === "search"
+  const isAgent = tool === "agent"
 
   // For non-expandable tools, clicking does nothing
   const handleClick = () => {
@@ -213,7 +237,8 @@ export function ToolCallCard({ toolCall, isLast, messageStatus }: ToolCallCardPr
         {isBash && <BashCard input={inp as BashInput} expanded={false} />}
         {isRead && <ReadCard input={inp as ReadInput} />}
         {isSearch && <SearchCard input={inp as SearchInput} />}
-        {!isEdit && !isWrite && !isBash && !isRead && !isSearch && (
+        {isAgent && <AgentCard input={inp as AgentInput} expanded={false} />}
+        {!isEdit && !isWrite && !isBash && !isRead && !isSearch && !isAgent && (
           <span className="text-text-muted truncate flex-1 min-w-0">
             {Object.values(inp)[0]?.toString().slice(0, 60) ?? ""}
           </span>
@@ -233,7 +258,8 @@ export function ToolCallCard({ toolCall, isLast, messageStatus }: ToolCallCardPr
           {isEdit && <EditCard input={inp as EditInput} expanded={true} />}
           {isWrite && <WriteCard input={inp as WriteInput} expanded={true} />}
           {isBash && <BashCard input={inp as BashInput} expanded={true} />}
-          {!isEdit && !isWrite && !isBash && (
+          {isAgent && <AgentCard input={inp as AgentInput} expanded={true} />}
+          {!isEdit && !isWrite && !isBash && !isAgent && (
             <div className="px-3 pb-3 pt-1 border-t border-border-subtle/50 font-mono text-text-secondary">
               <pre className="whitespace-pre-wrap break-all">
                 {JSON.stringify(toolCall.input, null, 2).slice(0, 600)}

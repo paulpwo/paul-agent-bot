@@ -1,4 +1,7 @@
 import { getSetting, SETTINGS_KEYS } from "@/lib/settings"
+import { createLogger } from "@/lib/logger"
+
+const logger = createLogger("notifications")
 
 export type NotificationEvent =
   | { type: "mention";       repo: string; threadId: string; title: string; url: string; actor: string; body?: string }
@@ -8,18 +11,8 @@ export type NotificationEvent =
 
 const DEFAULT_EVENTS = ["mention", "issue_opened", "pr_opened", "pr_merged"]
 
-function formatTelegramMessage(event: NotificationEvent): string {
-  switch (event.type) {
-    case "mention":
-      return `👋 *${event.actor}* mentioned me in [${event.repo}#${event.threadId}](${event.url})\n\n_${event.title}_${event.body ? `\n\n"${event.body}"` : ""}`
-    case "issue_opened":
-      return `📋 New issue in *${event.repo}*: [${event.title}](${event.url}) (by @${event.actor})`
-    case "pr_opened":
-      return `🔀 New PR in *${event.repo}*: [${event.title}](${event.url}) (by @${event.actor})`
-    case "pr_merged":
-      return `✅ PR merged in *${event.repo}*: [${event.title}](${event.url}) (by @${event.actor})`
-  }
-}
+// Note: Telegram notifications are handled natively by the grammy bot (stream-listener routes
+// task updates directly to the originating chat). No separate dispatch needed.
 
 function formatSlackMessage(event: NotificationEvent): string {
   switch (event.type) {
@@ -31,37 +24,6 @@ function formatSlackMessage(event: NotificationEvent): string {
       return `🔀 New PR in *${event.repo}*: <${event.url}|${event.title}> (by @${event.actor})`
     case "pr_merged":
       return `✅ PR merged in *${event.repo}*: <${event.url}|${event.title}> (by @${event.actor})`
-  }
-}
-
-async function dispatchTelegram(event: NotificationEvent): Promise<void> {
-  try {
-    const enabled = await getSetting(SETTINGS_KEYS.NOTIF_TELEGRAM_ENABLED)
-    if (enabled !== "true") return
-
-    const chatId = await getSetting(SETTINGS_KEYS.NOTIF_TELEGRAM_CHAT_ID)
-    if (!chatId) return
-
-    // Use the dedicated notifications token (separate from the interactive channel bot).
-    // Falls back to the channel bot token for backwards compatibility.
-    const token =
-      (await getSetting(SETTINGS_KEYS.NOTIF_TELEGRAM_BOT_TOKEN)) ??
-      (await getSetting(SETTINGS_KEYS.TELEGRAM_BOT_TOKEN)) ??
-      process.env.TELEGRAM_BOT_TOKEN
-    if (!token) return
-
-    const text = formatTelegramMessage(event)
-    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text, parse_mode: "Markdown" }),
-    })
-    if (!res.ok) {
-      const body = await res.text()
-      console.error("[notifications] Telegram API error:", res.status, body)
-    }
-  } catch (err) {
-    console.error("[notifications] Telegram dispatch failed:", err)
   }
 }
 
@@ -79,7 +41,7 @@ async function dispatchSlack(event: NotificationEvent): Promise<void> {
     const text = formatSlackMessage(event)
     await client.chat.postMessage({ channel: channelId, text })
   } catch (err) {
-    console.error("[notifications] Slack dispatch failed:", err)
+    logger.error("Slack dispatch failed", err)
   }
 }
 
@@ -89,8 +51,8 @@ export async function dispatchNotification(event: NotificationEvent): Promise<vo
     const enabledEvents: string[] = eventsRaw ? JSON.parse(eventsRaw) : DEFAULT_EVENTS
     if (!enabledEvents.includes(event.type)) return
 
-    await Promise.allSettled([dispatchTelegram(event), dispatchSlack(event)])
+    await dispatchSlack(event)
   } catch (err) {
-    console.error("[notifications] dispatchNotification failed:", err)
+    logger.error("dispatchNotification failed", err)
   }
 }

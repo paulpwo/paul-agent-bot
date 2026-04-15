@@ -3,6 +3,9 @@ import { dispatchNotification } from "@/lib/notifications/dispatch"
 import { enqueueTask } from "@/lib/queue/producer"
 import { redis } from "@/lib/redis/client"
 import { getSetting, SETTINGS_KEYS } from "@/lib/settings"
+import { createLogger } from "@/lib/logger"
+
+const logger = createLogger("github")
 
 const BOT_USERNAME = process.env.GITHUB_APP_BOT_USERNAME ?? "paulclaudebot[bot]"
 // Derive mention from bot username: "paulclaudebot[bot]" → "@paulclaudebot"
@@ -34,11 +37,11 @@ async function checkRateLimits(repo: string, threadId: string): Promise<boolean>
   if (dayCount === 1) await redis.expire(dayKey, 86400)
 
   if (minuteCount > maxPerMinute) {
-    console.warn(`[github] Rate limit hit: ${repo}#${threadId} — ${minuteCount} comments in last 60s (max ${maxPerMinute})`)
+    logger.warn(`Rate limit hit: ${repo}#${threadId} — ${minuteCount} comments in last 60s (max ${maxPerMinute})`)
     return false
   }
   if (dayCount > maxPerDay) {
-    console.warn(`[github] Daily rate limit hit: ${dayCount} tasks today (max ${maxPerDay})`)
+    logger.warn(`Daily rate limit hit: ${dayCount} tasks today (max ${maxPerDay})`)
     return false
   }
 
@@ -220,13 +223,13 @@ async function createTask(opts: {
   })
 
   if (!repoRecord) {
-    console.warn(`[github] Repo ${opts.repo} not enabled — ignoring`)
+    logger.warn(`Repo ${opts.repo} not enabled — ignoring`)
     return
   }
 
   const allowed = await checkRateLimits(opts.repo, opts.threadId)
   if (!allowed) {
-    console.warn(`[github] Task blocked by rate limit for ${opts.repo}#${opts.threadId}`)
+    logger.warn(`Task blocked by rate limit for ${opts.repo}#${opts.threadId}`)
     return
   }
 
@@ -282,5 +285,5 @@ async function createTask(opts: {
     data: { bullJobId: jobId },
   })
 
-  console.log(`[github] Task ${task.id} queued for ${opts.repo}#${opts.threadId}`)
+  logger.info(`Task ${task.id} queued for ${opts.repo}#${opts.threadId}`)
 }

@@ -1,5 +1,4 @@
 import { Bot, Context, session, SessionFlavor } from "grammy"
-import { getSetting, SETTINGS_KEYS } from "@/lib/settings"
 import { registerCommands } from "./commands"
 import { registerMessageHandler } from "./message-handler"
 import { registerApprovalHandler } from "./approval-handler"
@@ -14,8 +13,8 @@ export interface SessionData {
 export type BotContext = Context & SessionFlavor<SessionData>
 
 export async function createBot(): Promise<Bot<BotContext>> {
-  const token = await getSetting(SETTINGS_KEYS.TELEGRAM_BOT_TOKEN)
-  if (!token) throw new Error("TELEGRAM_BOT_TOKEN not configured in Settings")
+  const token = process.env.TELEGRAM_BOT_TOKEN
+  if (!token) throw new Error("TELEGRAM_BOT_TOKEN environment variable not set")
 
   const bot = new Bot<BotContext>(token)
 

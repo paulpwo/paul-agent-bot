@@ -34,23 +34,9 @@ type SectionConfig = {
   installUrl?: string
 }
 
+// NOTE: GitHub App, GitHub OAuth, and Telegram sections have been removed.
+// Those credentials are configured via environment variables only, not the Settings DB.
 const SECTIONS: SectionConfig[] = [
-  {
-    id: "github-app",
-    title: "GitHub App",
-    description: "Core GitHub App credentials. Read from environment by default; override in DB to use different values.",
-    installUrl: "https://github.com/settings/installations",
-  },
-  {
-    id: "github-oauth",
-    title: "GitHub OAuth",
-    description: "OAuth app used by NextAuth for dashboard login.",
-  },
-  {
-    id: "telegram",
-    title: "Telegram",
-    description: "Telegram bot configuration for the Telegram channel.",
-  },
   {
     id: "slack",
     title: "Slack",
@@ -71,7 +57,7 @@ const SECTIONS: SectionConfig[] = [
   {
     id: "notifications",
     title: "Notifications",
-    description: "Get notified in Telegram or Slack when GitHub events occur on tracked repos.",
+    description: "Get notified in Slack when GitHub events occur on tracked repos. Telegram receives updates natively via the bot.",
   },
 ]
 
@@ -223,7 +209,7 @@ function SettingField({
 }
 
 function getDependsOnKey(key: string): string | undefined {
-  if (key === "notifications.telegramEnabled") return "notifications.telegramBotToken"
+  // Telegram toggle no longer depends on a DB bot token (token is from env)
   if (key === "notifications.slackEnabled") return "slack.botToken"
   return undefined
 }

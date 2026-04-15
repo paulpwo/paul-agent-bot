@@ -6,7 +6,7 @@ export default async function TasksPage() {
   await requireAuth()
 
   const [tasks, repos] = await Promise.all([
-    db.task.findMany({ orderBy: { createdAt: "desc" }, take: 50 }),
+    db.task.findMany({ where: { channel: { not: "dashboard" } }, orderBy: { createdAt: "desc" }, take: 50 }),
     db.repo.findMany({ where: { enabled: true }, select: { fullName: true } }),
   ])
 
