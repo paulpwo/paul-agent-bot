@@ -2,7 +2,10 @@ import { spawn } from "child_process"
 import { createInterface } from "readline"
 import { publishStream } from "@/lib/redis/pubsub"
 import { redis } from "@/lib/redis/client"
-import { checkPathPermission } from "./permissions"
+import { checkPathPermission, requestHITLApproval } from "./permissions"
+
+// Tools that require explicit HITL approval before proceeding
+const APPROVAL_REQUIRED_TOOLS = new Set(["Bash"])
 
 export interface RunAgentOptions {
   taskId: string
@@ -91,21 +94,41 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
             }
 
             if (block.type === "tool_use") {
+              const toolName = typeof block.name === "string" ? block.name : String(block.name)
+
               // Check path safety before publishing tool use
-              const pathDecision = checkPathPermission(
-                typeof block.name === "string" ? block.name : "",
-                block.input,
-              )
+              const pathDecision = checkPathPermission(toolName, block.input)
               if (pathDecision === "deny") {
                 // Kill the process — workspace violation
                 child.kill("SIGTERM")
                 return
               }
 
+              // HITL gate — pause readline so we don't race ahead while waiting
+              if (APPROVAL_REQUIRED_TOOLS.has(toolName)) {
+                rl.pause()
+                const decision = await requestHITLApproval({
+                  taskId: opts.taskId,
+                  tool: toolName,
+                  input: block.input,
+                  channel: opts.channel,
+                })
+                if (decision === "deny") {
+                  await publishStream(redis, opts.taskId, {
+                    type: "error",
+                    taskId: opts.taskId,
+                    message: `Tool "${toolName}" was denied by the user.`,
+                  })
+                  child.kill("SIGTERM")
+                  return
+                }
+                rl.resume()
+              }
+
               await publishStream(redis, opts.taskId, {
                 type: "tool_use",
                 taskId: opts.taskId,
-                tool: typeof block.name === "string" ? block.name : String(block.name),
+                tool: toolName,
                 input: block.input,
               })
             }

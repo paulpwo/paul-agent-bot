@@ -96,6 +96,13 @@ export function ChatPage({ initialSession, initialMessages, recentSessions, repo
     inputRef.current?.focus()
   }, [])
 
+  // Restore focus to input after stream completes
+  useEffect(() => {
+    if (!isStreaming) {
+      inputRef.current?.focus()
+    }
+  }, [isStreaming])
+
   // Auto-reconnect stream when loading a session that has a running task
   useEffect(() => {
     const runningMsg = (initialMessages ?? []).find(
