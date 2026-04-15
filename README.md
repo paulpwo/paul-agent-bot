@@ -133,14 +133,24 @@ All configuration is done via environment variables. Copy `.env.example` to `.en
 
 | Variable | Description |
 |----------|-------------|
-| `DATABASE_URL` | PostgreSQL connection string (or leave empty for SQLite) |
+| `DATABASE_URL` | SQLite path for dev (e.g. `file:./dev.db`) or PostgreSQL for production |
 | `REDIS_URL` | Redis connection string (e.g. `redis://localhost:6379`) |
-| `NEXTAUTH_SECRET` | Random 32+ byte string for session encryption |
+| `NEXTAUTH_SECRET` | Random 32+ byte string for session encryption (`openssl rand -base64 32`) |
 | `NEXTAUTH_URL` | Your app's public URL (e.g. `http://localhost:3000`) |
-| `ENCRYPTION_KEY` | Random 32-byte hex string for settings encryption |
-| `BOOTSTRAP_ADMIN` | Your GitHub username — used for first login before OAuth is set up |
+| `ENCRYPTION_KEY` | Random 32-byte hex string for settings encryption (`openssl rand -hex 32`) |
+| `BOOTSTRAP_ADMIN` | Your GitHub username — required for first login before OAuth is configured |
 
-### GitHub App (required)
+### GitHub OAuth (required for login)
+
+Create an OAuth App at [github.com/settings/developers](https://github.com/settings/developers):
+- **Authorization callback URL:** `http://localhost:3000/api/auth/callback/github`
+
+| Variable | Description |
+|----------|-------------|
+| `GITHUB_OAUTH_CLIENT_ID` | OAuth app client ID |
+| `GITHUB_OAUTH_CLIENT_SECRET` | OAuth app client secret |
+
+### GitHub App (required for repo integration)
 
 Create a GitHub App at [github.com/settings/apps/new](https://github.com/settings/apps/new):
 - **Webhook URL:** `https://your-domain.com/api/webhooks/github`
@@ -153,8 +163,6 @@ Create a GitHub App at [github.com/settings/apps/new](https://github.com/setting
 | `GITHUB_APP_PRIVATE_KEY` | Contents of the `.pem` private key (newlines as `\n`) |
 | `GITHUB_APP_WEBHOOK_SECRET` | Webhook secret set during app creation |
 | `GITHUB_APP_BOT_USERNAME` | The bot's GitHub username (e.g. `paulagentbot[bot]`) |
-| `GITHUB_CLIENT_ID` | OAuth app client ID (for dashboard login) |
-| `GITHUB_CLIENT_SECRET` | OAuth app client secret |
 
 ### Telegram (optional)
 
