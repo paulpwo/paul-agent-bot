@@ -81,10 +81,15 @@ export async function startWorkers(): Promise<void> {
     console.error("[workers] Failed to start scheduler:", err)
   }
 
-  // Graceful shutdown
+  // Graceful shutdown — stop Telegram bot first so the long-poll is released
+  // before the process exits. Without this, the next container startup gets a
+  // 409 conflict because Telegram keeps the old getUpdates connection open.
   process.on("SIGTERM", async () => {
-    const { closeAllWorkers } = await import("@/lib/queue/registry")
-    await closeAllWorkers()
+    const [{ closeAllWorkers }, { stopTelegramBot }] = await Promise.all([
+      import("@/lib/queue/registry"),
+      import("@/lib/bot-manager"),
+    ])
+    await Promise.all([closeAllWorkers(), stopTelegramBot()])
     process.exit(0)
   })
 }

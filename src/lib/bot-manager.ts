@@ -23,6 +23,13 @@ export async function startTelegramBot(): Promise<void> {
     }).catch((err: unknown) => {
       console.error("[bot-manager] Telegram bot stopped with error:", err)
       currentBot = null
+      // 409 = another getUpdates is still open (old container long-poll not yet expired).
+      // Wait 35s for Telegram's 30s poll timeout to clear, then retry.
+      const is409 = typeof err === "object" && err !== null && (err as { error_code?: number }).error_code === 409
+      if (is409) {
+        console.log("[bot-manager] 409 conflict — retrying in 35s")
+        setTimeout(() => startTelegramBot(), 35_000)
+      }
     })
   } catch (err) {
     console.error("[bot-manager] Failed to initialize Telegram bot:", err)
