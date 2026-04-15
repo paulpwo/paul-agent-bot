@@ -38,6 +38,9 @@ export async function ensureWorkspace(opts: CloneOrPullOptions): Promise<string>
     // `git pull --ff-only` would fail with "no tracking information".
     const defaultBranch = opts.defaultBranch ?? "main"
     await exec("git", ["checkout", defaultBranch], { cwd: workspacePath })
+    // Refresh remote URL with a fresh token — GitHub App tokens expire after 1 hour,
+    // and the URL embedded in .git/config from the initial clone may be stale.
+    await exec("git", ["remote", "set-url", "origin", opts.cloneUrl], { cwd: workspacePath })
     await exec("git", ["pull", "--ff-only"], { cwd: workspacePath })
   }
 
