@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation"
 import { useSession, signOut } from "next-auth/react"
 import { useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import type { ReactNode } from "react"
 import { ThemeToggle } from "./ThemeToggle"
 
@@ -180,9 +181,7 @@ export function Sidebar() {
       >
         {/* Logo — desktop */}
         <div className="px-2 mb-6 flex items-center gap-2.5">
-          <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-indigo-600 text-white text-[11px] font-bold select-none shrink-0 tracking-tight">
-            PB
-          </span>
+          <Image src="/logo.png" alt="PaulAgentBot" width={28} height={28} className="shrink-0" />
           <span className="text-sm font-semibold text-text-primary tracking-tight">PaulAgentBot</span>
           {/* Close button — mobile only */}
           <button

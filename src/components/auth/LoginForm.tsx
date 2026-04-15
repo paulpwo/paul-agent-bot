@@ -2,6 +2,7 @@
 
 import { signIn } from "next-auth/react"
 import { useState } from "react"
+import Image from "next/image"
 
 export function LoginForm({ isBootstrap }: { isBootstrap: boolean }) {
   const [login, setLogin] = useState("")
@@ -29,9 +30,7 @@ export function LoginForm({ isBootstrap }: { isBootstrap: boolean }) {
     <div className="w-full max-w-sm">
       {/* Logo */}
       <div className="flex items-center gap-2.5 mb-8 justify-center">
-        <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-600 text-white text-sm font-bold select-none tracking-tight">
-          PB
-        </span>
+        <Image src="/logo.png" alt="PaulAgentBot" width={32} height={32} />
         <span className="text-base font-semibold text-text-primary tracking-tight">PaulAgentBot</span>
       </div>
 
