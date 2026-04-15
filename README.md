@@ -90,7 +90,7 @@ Before you begin, you need:
 ```bash
 git clone https://github.com/paulpwo/paul-agent-bot.git
 cd paul-agent-bot
-npm install
+pnpm install   # or: npm install
 ```
 
 ### 2. Configure environment variables
@@ -101,27 +101,26 @@ cp .env.example .env
 
 Edit `.env` and fill in all required values. See [Configuration](#configuration) below.
 
+> **Tip:** Keep `WORKER_ONLY=true` in your `.env` (it's the default in `.env.example`). This prevents the Next.js dev server from starting workers, so only the dedicated worker process handles BullMQ queues and the Telegram bot — avoiding 409 conflicts.
+
 ### 3. Set up the database
 
 ```bash
-# Generate Prisma client
-npx prisma generate
-
-# Run migrations (creates the database schema)
-npx prisma migrate deploy
+# Run migrations (creates the SQLite database and generates Prisma client)
+pnpm dlx prisma migrate deploy   # or: npx prisma migrate deploy
 ```
 
 ### 4. Start development
 
 ```bash
 # Terminal 1 — Next.js dev server
-npm run dev
+pnpm dev   # or: npm run dev
 
-# Terminal 2 — BullMQ worker
-npm run worker
+# Terminal 2 — BullMQ worker (handles queues + Telegram bot)
+pnpm worker   # or: npm run worker
 ```
 
-Open [http://localhost:3000](http://localhost:3000) and log in with your GitHub account (or bootstrap username).
+Open [http://localhost:3000](http://localhost:3000) and log in with your GitHub account (username must match `BOOTSTRAP_ADMIN` for the first login).
 
 ---
 
