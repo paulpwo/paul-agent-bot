@@ -101,14 +101,26 @@ cp .env.example .env
 
 Edit `.env` and fill in all required values. See [Configuration](#configuration) below.
 
-### 3. Set up the database
+### 3. Start Redis
+
+Redis is required for the task queue. Pick one option:
+
+```bash
+# Option A — Docker (recommended, works everywhere)
+docker run -d -p 6379:6379 --name redis redis:7-alpine
+
+# Option B — Homebrew (macOS)
+brew install redis && brew services start redis
+```
+
+### 4. Set up the database
 
 ```bash
 # Run migrations (creates the SQLite database and generates Prisma client)
 pnpm dlx prisma migrate deploy   # or: npx prisma migrate deploy
 ```
 
-### 4. Start development
+### 5. Start development
 
 ```bash
 pnpm dev   # or: npm run dev
