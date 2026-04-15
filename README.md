@@ -101,8 +101,6 @@ cp .env.example .env
 
 Edit `.env` and fill in all required values. See [Configuration](#configuration) below.
 
-> **Tip:** Keep `WORKER_ONLY=true` in your `.env` (it's the default in `.env.example`). This prevents the Next.js dev server from starting workers, so only the dedicated worker process handles BullMQ queues and the Telegram bot — avoiding 409 conflicts.
-
 ### 3. Set up the database
 
 ```bash
@@ -113,14 +111,12 @@ pnpm dlx prisma migrate deploy   # or: npx prisma migrate deploy
 ### 4. Start development
 
 ```bash
-# Terminal 1 — Next.js dev server
 pnpm dev   # or: npm run dev
-
-# Terminal 2 — BullMQ worker (handles queues + Telegram bot)
-pnpm worker   # or: npm run worker
 ```
 
 Open [http://localhost:3000](http://localhost:3000) and log in with your GitHub account (username must match `BOOTSTRAP_ADMIN` for the first login).
+
+> Workers, BullMQ queues, and the Telegram bot all start automatically inside the Next.js process via `instrumentation.ts`.
 
 ---
 
