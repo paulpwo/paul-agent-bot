@@ -23,11 +23,20 @@ services:
       redis:
         condition: service_healthy
     volumes:
+      # Claude Code auth — bind-mount host ~/.claude into container at /root/.claude.
+      # Set CLAUDE_AUTH_DIR in .env to the path of ~/.claude on this host machine.
+      # On EC2: /root/.claude or /home/ubuntu/.claude
+      - type: bind
+        source: ${CLAUDE_AUTH_DIR}
+        target: /root/.claude
+        read_only: true
       # Persistent workspace for cloned repos (on EBS)
       - type: bind
         source: /data/workspaces
         target: /data/workspaces
-      # SQLite database file (on EBS — survives container recreation)
+      # SQLite database file (on EBS — survives container recreation).
+      # IMPORTANT: create this file before first run: touch /data/paulagentbot.db
+      # Docker creates it as a directory if it doesn't exist, which breaks SQLite.
       - type: bind
         source: /data/paulagentbot.db
         target: /data/paulagentbot.db
@@ -52,6 +61,11 @@ services:
       redis:
         condition: service_healthy
     volumes:
+      # Same Claude auth mount as the web service — worker spawns the claude CLI
+      - type: bind
+        source: ${CLAUDE_AUTH_DIR}
+        target: /root/.claude
+        read_only: true
       - type: bind
         source: /data/workspaces
         target: /data/workspaces

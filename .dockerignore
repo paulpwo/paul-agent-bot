@@ -1,0 +1,43 @@
+# Secrets — never bake into image
+.env
+.env.local
+.env.*.local
+
+# Dependencies — rebuilt inside Docker
+node_modules
+package-lock.json
+yarn.lock
+
+# Next.js build output — rebuilt inside Docker
+.next
+
+# Git history — not needed in image
+.git
+.gitignore
+.gitattributes
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode
+.idea
+*.swp
+
+# Logs
+logs
+*.log
+
+# Test output
+coverage
+.nyc_output
+
+# Terraform state — contains infra secrets
+terraform/*.tfvars
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/.terraform
+
+# Local dev scripts / docs that don't belong in the image
+*.md
+!README.md

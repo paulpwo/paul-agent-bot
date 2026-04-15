@@ -5,15 +5,10 @@ FROM node:20-slim AS deps
 WORKDIR /app
 
 
-COPY package.json package-lock.json* yarn.lock* pnpm-lock.yaml* ./
+COPY package.json pnpm-lock.yaml .npmrc ./
 COPY prisma ./prisma
 
-RUN \
-  if [ -f package-lock.json ]; then npm ci; \
-  elif [ -f yarn.lock ]; then yarn --frozen-lockfile; \
-  elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm i --frozen-lockfile; \
-  else npm ci; \
-  fi
+RUN corepack enable pnpm && pnpm i --frozen-lockfile && pnpm rebuild better-sqlite3
 
 # ── Stage 2: builder ───────────────────────────────────────────────────────────
 # Build the Next.js application in standalone output mode
@@ -21,22 +16,21 @@ FROM node:20-slim AS builder
 
 WORKDIR /app
 
+RUN corepack enable pnpm
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Force install platform-specific native binaries (Tailwind v4 + lightningcss require linux x64 gnu on EC2)
-RUN npm install --no-save lightningcss-linux-x64-gnu @tailwindcss/oxide-linux-x64-gnu 2>/dev/null || true
-
-# Rebuild native modules for the target platform (fixes cross-compilation issues with better-sqlite3)
-RUN npm rebuild better-sqlite3
+RUN pnpm add --no-save lightningcss-linux-x64-gnu @tailwindcss/oxide-linux-x64-gnu 2>/dev/null || true
 
 # Generate Prisma client before building
-RUN npx prisma generate
+RUN pnpm exec prisma generate
 
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
-RUN npm run build
+RUN pnpm run build
 
 # Compile worker to a single JS bundle (avoids needing tsx + src/ at runtime)
 RUN npx esbuild src/workers/index.ts \

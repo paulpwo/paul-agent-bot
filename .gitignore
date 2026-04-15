@@ -14,6 +14,9 @@
 node_modules/
 .pnp
 .pnp.js
+# This is a pnpm project — only pnpm-lock.yaml should be committed
+package-lock.json
+yarn.lock
 
 # ── Next.js ──────────────────────────────────────────────────────
 .next/
