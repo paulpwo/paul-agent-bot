@@ -35,6 +35,9 @@ services:
       DATABASE_URL: file:/data/paulagentbot.db
       REDIS_URL: redis://redis:6379
       WORKSPACE_BASE: /data/workspaces
+      # Prevent the web process from starting BullMQ workers + Telegram bot.
+      # The dedicated paulagentbot-worker container handles all background work.
+      WORKER_ONLY: "true"
     ports:
       # Only bind to localhost — Caddy is the public-facing proxy
       - "127.0.0.1:3000:3000"
