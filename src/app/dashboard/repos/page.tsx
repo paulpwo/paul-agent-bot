@@ -2,6 +2,7 @@ import { db } from "@/lib/db/client"
 import { requireAuth } from "@/lib/auth/session"
 import { redirect } from "next/navigation"
 import { ReposList } from "@/components/repos/ReposList"
+import { SyncButton } from "@/components/repos/SyncButton"
 
 async function syncRepos() {
   "use server"
@@ -83,12 +84,7 @@ export default async function ReposPage({
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold text-white tracking-tight">Repos</h1>
         <form action={syncRepos}>
-          <button
-            type="submit"
-            className="text-xs px-3 py-1.5 rounded-lg bg-surface-overlay text-text-primary hover:bg-surface-overlay/80 transition-colors"
-          >
-            Sync from GitHub
-          </button>
+          <SyncButton />
         </form>
       </div>
 
