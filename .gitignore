@@ -46,6 +46,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# ── Build artifacts ───────────────────────────────────────────────
+tsconfig.tsbuildinfo
+
 # ── Claude Code agent skills (workspace-local, not part of project) ───
 .agents/
 .claude/
