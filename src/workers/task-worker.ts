@@ -109,11 +109,34 @@ Use this when:
 Keep messages concise. Use Markdown for formatting if helpful. Do NOT send unsolicited messages unless the user asked for a notification.`
     }
 
-    // Fetch task's session to get existing agentSessionId (for --resume)
+    // Fetch task's session to get existing agentSessionId (for --resume) + userId for Telegram lookup
     const taskRecord = await db.task.findUnique({
       where: { id: taskId },
-      select: { sessionId: true, session: { select: { agentSessionId: true } } },
+      select: { sessionId: true, userId: true, session: { select: { agentSessionId: true } } },
     })
+
+    // For chat channel: inject Telegram notify instructions if the user has a linked Telegram session
+    if (channel === "chat" && process.env.TELEGRAM_BOT_TOKEN && taskRecord?.userId) {
+      const telegramSession = await db.session.findFirst({
+        where: { channel: "telegram", userId: taskRecord.userId },
+        select: { channelId: true },
+        orderBy: { updatedAt: "desc" },
+      })
+      if (telegramSession?.channelId) {
+        systemPrompt += `\n\n---\n\n## Telegram Notify Instructions
+
+Your Telegram chat ID for this user is: \`${telegramSession.channelId}\`
+
+You can send a Telegram message to the user at any time using bash:
+\`\`\`bash
+curl -s "https://api.telegram.org/bot\${TELEGRAM_BOT_TOKEN}/sendMessage" \\
+  -d "chat_id=${telegramSession.channelId}&text=YOUR_MESSAGE&parse_mode=Markdown"
+\`\`\`
+
+Use this when the user explicitly asks you to send something to Telegram.
+Keep messages concise. Use Markdown for formatting if helpful.`
+      }
+    }
 
     // Run the agent
     let result = await runAgent({
