@@ -1,5 +1,6 @@
 import { db } from "@/lib/db/client"
 import { registerRepoWorker } from "@/lib/queue/registry"
+import { enqueueTask } from "@/lib/queue/producer"
 import { processTask } from "./task-worker"
 
 async function recoverStuckTasks(): Promise<void> {
@@ -14,6 +15,26 @@ async function recoverStuckTasks(): Promise<void> {
   })
   if (stuck.count > 0) {
     console.log(`[workers] Recovered ${stuck.count} stuck RUNNING task(s) → FAILED`)
+  }
+
+  // On startup, re-enqueue any QUEUED tasks whose BullMQ jobs may have been lost
+  // (e.g. repo was enabled after worker started, or Redis was flushed).
+  const orphaned = await db.task.findMany({
+    where: { status: "QUEUED" },
+    select: { id: true, repo: true, channel: true, channelId: true, threadId: true, prompt: true },
+  })
+  for (const task of orphaned) {
+    await enqueueTask({
+      taskId: task.id,
+      repo: task.repo,
+      channel: task.channel,
+      channelId: task.channelId,
+      threadId: task.threadId,
+      prompt: task.prompt,
+    })
+  }
+  if (orphaned.length > 0) {
+    console.log(`[workers] Re-enqueued ${orphaned.length} orphaned QUEUED task(s)`)
   }
 }
 
