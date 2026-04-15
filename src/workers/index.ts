@@ -51,12 +51,18 @@ export async function startWorkers(): Promise<void> {
   const count = repos.length
   console.log(`[workers] Started ${count} repo worker${count === 1 ? "" : "s"}`)
 
-  // Start Telegram bot via BotManager (supports hot-reload from Settings)
-  try {
-    const { startTelegramBot } = await import("@/lib/bot-manager")
-    await startTelegramBot()
-  } catch (err) {
-    console.error("[workers] Failed to start Telegram bot:", err)
+  // Start Telegram bot — production only.
+  // In dev mode the Next.js instrumentation runs the worker in-process,
+  // which would connect to the production bot token and cause 409 conflicts.
+  if (process.env.NODE_ENV === "production") {
+    try {
+      const { startTelegramBot } = await import("@/lib/bot-manager")
+      await startTelegramBot()
+    } catch (err) {
+      console.error("[workers] Failed to start Telegram bot:", err)
+    }
+  } else {
+    console.log("[workers] Skipping Telegram bot in dev mode (NODE_ENV !== production)")
   }
 
   // Start Slack bot (only if token is configured)
