@@ -101,7 +101,17 @@ cp .env.example .env
 
 Edit `.env` and fill in all required values. See [Configuration](#configuration) below.
 
-### 3. Start Redis
+### 3. Rebuild native modules
+
+`better-sqlite3` requires a native binary compiled for your Node.js version and platform:
+
+```bash
+pnpm rebuild better-sqlite3   # or: npm rebuild better-sqlite3
+```
+
+> **macOS:** If this fails, install Xcode Command Line Tools first: `xcode-select --install`
+
+### 4. Start Redis
 
 Redis is required for the task queue. Pick one option:
 
@@ -113,14 +123,14 @@ docker run -d -p 6379:6379 --name redis redis:7-alpine
 brew install redis && brew services start redis
 ```
 
-### 4. Set up the database
+### 5. Set up the database
 
 ```bash
 # Run migrations (creates the SQLite database and generates Prisma client)
 pnpm dlx prisma migrate deploy   # or: npx prisma migrate deploy
 ```
 
-### 5. Start development
+### 6. Start development
 
 ```bash
 pnpm dev   # or: npm run dev
