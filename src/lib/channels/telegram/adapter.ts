@@ -9,6 +9,26 @@ const logger = createLogger("tg-adapter")
 // Rate limit: Telegram allows ~1 edit/second per message
 const EDIT_INTERVAL_MS = 1000
 
+function toolSummary(tool: string, input: unknown): string {
+  if (typeof input !== "object" || input === null) return tool
+  const inp = input as Record<string, unknown>
+  const str = (v: unknown, max = 60) => String(v ?? "").slice(0, max)
+  const lastSegments = (p: unknown, n = 2) => str(p).split("/").filter(Boolean).slice(-n).join("/")
+
+  switch (tool) {
+    case "Bash":   return `Bash: \`${str(inp.command, 60)}\``
+    case "Read":   return `Read: \`${lastSegments(inp.file_path ?? inp.path)}\``
+    case "Write":  return `Write: \`${lastSegments(inp.file_path ?? inp.path)}\``
+    case "Edit":   return `Edit: \`${lastSegments(inp.file_path ?? inp.path)}\``
+    case "Glob":   return `Glob: \`${str(inp.pattern, 50)}\``
+    case "Grep":   return `Grep: \`${str(inp.pattern, 50)}\``
+    case "Agent":  return `Agent: ${str(inp.description ?? inp.prompt, 60)}`
+    case "WebFetch": return `Fetch: \`${str(inp.url, 60)}\``
+    case "WebSearch": return `Search: \`${str(inp.query, 60)}\``
+    default:       return tool
+  }
+}
+
 interface StreamToTelegramOpts {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   bot: Bot<any>
@@ -59,7 +79,7 @@ export async function streamToTelegram(opts: StreamToTelegramOpts): Promise<void
             break
 
           case "tool_use":
-            buffer += `\n\n_🔧 ${event.tool}_`
+            buffer += `\n\n_🔧 ${toolSummary(event.tool, event.input)}_`
             break
 
           case "approval_needed":
