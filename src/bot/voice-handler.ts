@@ -105,6 +105,8 @@ export function registerVoiceHandler(bot: Bot<BotContext>): void {
 
       await redis.set(`tg:ack:${task.id}`, String(statusMsg.message_id), "EX", 3600)
       await redis.set(`tg:chat:${task.id}`, String(ctx.chat.id), "EX", 3600)
+      // Set voice flag BEFORE watchTaskStream — stream-listener reads it immediately on subscribe
+      if (voiceReply) await redis.set(`tg:voice:${task.id}`, "1", "EX", 3600)
 
       const jobId = await enqueueTask({
         taskId: task.id,
