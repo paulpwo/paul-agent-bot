@@ -100,6 +100,12 @@ COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 # effect is required by @prisma/config (prisma migrate deploy)
 COPY --from=builder /app/node_modules/effect ./node_modules/effect
 
+# better-sqlite3 native binary — required by workers-entrypoint.js at runtime
+# Must come from deps stage (where pnpm rebuild better-sqlite3 compiled it), not builder
+COPY --from=deps /app/node_modules/better-sqlite3 ./node_modules/better-sqlite3
+COPY --from=deps /app/node_modules/bindings ./node_modules/bindings
+COPY --from=deps /app/node_modules/file-uri-to-path ./node_modules/file-uri-to-path
+
 # Copy compiled worker bundle
 COPY --from=builder /app/workers-entrypoint.js ./
 
