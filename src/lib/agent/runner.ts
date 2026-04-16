@@ -24,6 +24,30 @@ async function prepareAgentHome(agentHome: string): Promise<void> {
 
 const logger = createLogger("runner")
 
+// Patterns to mask in tool inputs before publishing to the frontend.
+// Prevents tokens/secrets from appearing in the chat UI.
+const SECRET_PATTERNS: [RegExp, string][] = [
+  [/GH_TOKEN=[^\s"']+/g, "GH_TOKEN=***"],
+  [/GITHUB_TOKEN=[^\s"']+/g, "GITHUB_TOKEN=***"],
+  [/x-access-token:[^@]+@/g, "x-access-token:***@"],
+  [/ghp_[A-Za-z0-9]{36}/g, "ghp_***"],
+  [/ghs_[A-Za-z0-9]{36}/g, "ghs_***"],
+]
+
+function sanitizeInput(input: unknown): unknown {
+  if (typeof input === "string") {
+    let out = input
+    for (const [pattern, replacement] of SECRET_PATTERNS) out = out.replace(pattern, replacement)
+    return out
+  }
+  if (typeof input === "object" && input !== null) {
+    return Object.fromEntries(
+      Object.entries(input as Record<string, unknown>).map(([k, v]) => [k, sanitizeInput(v)])
+    )
+  }
+  return input
+}
+
 // Bash patterns that require explicit HITL approval — everything else auto-approves.
 // Path isolation (checkPathPermission) already blocks workspace escapes.
 const DANGEROUS_BASH_PATTERNS = [
@@ -187,7 +211,7 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
                 type: "tool_use",
                 taskId: opts.taskId,
                 tool: toolName,
-                input: block.input,
+                input: sanitizeInput(block.input),
               })
             }
           }
