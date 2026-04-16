@@ -4,7 +4,22 @@ import { existsSync } from "fs"
 import path from "path"
 import { db } from "@/lib/db/client"
 
-const exec = promisify(execFile)
+const execRaw = promisify(execFile)
+
+// Git env: disable interactive credential prompts and keychain storage.
+// The clone URL already contains the token — no need to store anything.
+const GIT_ENV = {
+  ...process.env,
+  GIT_TERMINAL_PROMPT: "0",
+  GIT_ASKPASS: "echo",
+  GIT_CONFIG_COUNT: "1",
+  GIT_CONFIG_KEY_0: "credential.helper",
+  GIT_CONFIG_VALUE_0: "",
+}
+
+function exec(cmd: string, args: string[], opts?: { cwd?: string }): ReturnType<typeof execRaw> {
+  return execRaw(cmd, args, { ...opts, env: GIT_ENV })
+}
 
 const WORKSPACE_BASE = process.env.WORKSPACE_BASE ?? "/data/workspaces"
 
