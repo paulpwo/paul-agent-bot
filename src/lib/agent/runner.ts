@@ -3,6 +3,7 @@ import { createInterface } from "readline"
 import { publishStream } from "@/lib/redis/pubsub"
 import { redis } from "@/lib/redis/client"
 import { checkPathPermission, requestHITLApproval } from "./permissions"
+import path from "path"
 
 // Tools that require explicit HITL approval before proceeding
 const APPROVAL_REQUIRED_TOOLS = new Set(["Bash"])
@@ -53,13 +54,21 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
     // HOME → /tmp so claude can write its working files (settings, session state).
     // Auth is via CLAUDE_CODE_OAUTH_TOKEN env var — no .claude directory needed.
     const isRoot = process.getuid?.() === 0
+
+    // Use an isolated agent HOME so the subprocess does NOT read the user's personal
+    // ~/.claude/CLAUDE.md (which contains personal assistant instructions like voice-note
+    // bash scripts that conflict with the bot's TTS pipeline).
+    // - Local dev (non-root): .agent-home/ in the project root — has a minimal CLAUDE.md.
+    //   macOS Keychain handles auth so HOME doesn't affect credentials.
+    // - Docker (root): /tmp — auth comes from CLAUDE_CODE_OAUTH_TOKEN env var.
+    const agentHome = isRoot
+      ? "/tmp"
+      : (process.env.PAULBOT_AGENT_HOME ?? path.resolve(process.cwd(), ".agent-home"))
+
     const child = spawn("claude", args, {
       cwd: opts.workspacePath,
       stdio: ["ignore", "pipe", "pipe"],  // stdin → /dev/null, capture stdout/stderr
-      // Override HOME only in Docker (root) — local dev must keep the real HOME so
-      // claude can find its auth in ~/.claude/. In Docker, HOME=/tmp + uid 1001 allows
-      // --dangerously-skip-permissions without root; auth comes from CLAUDE_CODE_OAUTH_TOKEN.
-      env: { ...process.env, ...(isRoot ? { HOME: "/tmp" } : {}), ...(opts.extraEnv ?? {}) },
+      env: { ...process.env, HOME: agentHome, ...(opts.extraEnv ?? {}) },
       ...(isRoot ? { uid: 1001, gid: 1001 } : {}),
     })
 

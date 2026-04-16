@@ -53,6 +53,13 @@ tsconfig.tsbuildinfo
 .agents/
 .claude/
 
+# ── Agent subprocess HOME (isolated from personal ~/.claude/CLAUDE.md) ───
+# Contains only a minimal CLAUDE.md. Claude state/sessions written here are transient.
+.agent-home/sessions/
+.agent-home/projects/
+.agent-home/telemetry/
+.agent-home/history.jsonl
+
 # ── Terraform ────────────────────────────────────────────────────
 # Real variable values (may contain tokens, IPs, secrets)
 terraform/terraform.tfvars
