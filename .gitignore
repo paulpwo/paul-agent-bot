@@ -58,6 +58,11 @@ tsconfig.tsbuildinfo
 .agent-home/**
 !.agent-home/.claude/
 !.agent-home/.claude/CLAUDE.md
+!.agent-home/.profile
+!.agent-home/.bashrc
+!.agent-home/.bash_profile
+!.agent-home/.zshenv
+!.agent-home/.zprofile
 
 # ── Terraform ────────────────────────────────────────────────────
 # Real variable values (may contain tokens, IPs, secrets)
