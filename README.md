@@ -498,6 +498,12 @@ Copyright 2025 Paul Osinga. Licensed under the [Apache License, Version 2.0](LIC
 
 ---
 
+## Contributors
+
+[![Contributors](https://contrib.rocks/image?repo=paulpwo/paul-agent-bot)](https://github.com/paulpwo/paul-agent-bot/graphs/contributors)
+
+---
+
 ## Acknowledgements
 
 - [Anthropic](https://anthropic.com) — Claude Code CLI
