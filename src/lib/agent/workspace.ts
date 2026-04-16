@@ -44,11 +44,25 @@ export async function ensureWorkspace(opts: CloneOrPullOptions): Promise<string>
     // Always return to the default branch before pulling.
     // If a previous task left the workspace on a feature branch with no upstream,
     // `git pull --ff-only` would fail with "no tracking information".
-    const defaultBranch = opts.defaultBranch ?? "main"
-    await exec("git", ["checkout", defaultBranch], { cwd: workspacePath })
-    // Refresh remote URL with a fresh token — GitHub App tokens expire after 1 hour,
-    // and the URL embedded in .git/config from the initial clone may be stale.
+    // Refresh remote URL first — GitHub App tokens expire after 1 hour.
     await exec("git", ["remote", "set-url", "origin", opts.cloneUrl], { cwd: workspacePath })
+    // Fetch so remote HEAD is up to date before we try to resolve it.
+    await exec("git", ["fetch", "origin"], { cwd: workspacePath })
+
+    // Resolve the branch to checkout: prefer DB value, fall back to actual remote HEAD.
+    let defaultBranch = opts.defaultBranch ?? "main"
+    try {
+      await exec("git", ["checkout", defaultBranch], { cwd: workspacePath })
+    } catch {
+      // DB value wrong or stale — detect remote HEAD and retry once.
+      const { stdout } = await exec(
+        "git", ["symbolic-ref", "refs/remotes/origin/HEAD", "--short"],
+        { cwd: workspacePath }
+      )
+      defaultBranch = stdout.trim().replace(/^origin\//, "")
+      await exec("git", ["checkout", defaultBranch], { cwd: workspacePath })
+    }
+
     await exec("git", ["pull", "--ff-only"], { cwd: workspacePath })
   }
 
