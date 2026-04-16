@@ -3,7 +3,10 @@ import { createInterface } from "readline"
 import { publishStream } from "@/lib/redis/pubsub"
 import { redis } from "@/lib/redis/client"
 import { checkPathPermission, requestHITLApproval } from "./permissions"
+import { createLogger } from "@/lib/logger"
 import path from "path"
+
+const logger = createLogger("runner")
 
 // Bash patterns that require explicit HITL approval — everything else auto-approves.
 // Path isolation (checkPathPermission) already blocks workspace escapes.
@@ -177,7 +180,10 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
 
     let stderrOutput = ""
     child.stderr.on("data", (chunk: Buffer) => {
-      stderrOutput += chunk.toString()
+      const text = chunk.toString()
+      stderrOutput += text
+      // Log stderr lines immediately so they appear in the log file even if process dies
+      text.split("\n").filter(Boolean).forEach(line => logger.warn(`[stderr] ${line}`))
     })
 
     child.on("close", async (code) => {
