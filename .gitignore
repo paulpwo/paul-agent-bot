@@ -51,14 +51,13 @@ tsconfig.tsbuildinfo
 
 # ── Claude Code agent skills (workspace-local, not part of project) ───
 .agents/
-.claude/
+/.claude/
 
 # ── Agent subprocess HOME (isolated from personal ~/.claude/CLAUDE.md) ───
-# Contains only a minimal CLAUDE.md. Claude state/sessions written here are transient.
-.agent-home/sessions/
-.agent-home/projects/
-.agent-home/telemetry/
-.agent-home/history.jsonl
+# Track only .agent-home/.claude/CLAUDE.md — everything else is transient claude state.
+.agent-home/**
+!.agent-home/.claude/
+!.agent-home/.claude/CLAUDE.md
 
 # ── Terraform ────────────────────────────────────────────────────
 # Real variable values (may contain tokens, IPs, secrets)
