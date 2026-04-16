@@ -56,7 +56,10 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
     const child = spawn("claude", args, {
       cwd: opts.workspacePath,
       stdio: ["ignore", "pipe", "pipe"],  // stdin → /dev/null, capture stdout/stderr
-      env: { ...process.env, HOME: "/tmp", ...(opts.extraEnv ?? {}) },
+      // Override HOME only in Docker (root) — local dev must keep the real HOME so
+      // claude can find its auth in ~/.claude/. In Docker, HOME=/tmp + uid 1001 allows
+      // --dangerously-skip-permissions without root; auth comes from CLAUDE_CODE_OAUTH_TOKEN.
+      env: { ...process.env, ...(isRoot ? { HOME: "/tmp" } : {}), ...(opts.extraEnv ?? {}) },
       ...(isRoot ? { uid: 1001, gid: 1001 } : {}),
     })
 
