@@ -3,6 +3,9 @@ import path from "path";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Next.js 16+ enables Turbopack by default. Declare an empty turbopack config to
+  // indicate we're aware of the conflict — our webpack config is dev-only (watchOptions).
+  turbopack: {},
   // Ignore directories that change at runtime (agent sessions, cloned repos, logs)
   // so the dev file watcher doesn't hot-reload when claude writes to them.
   // Use regex instead of globs — micromatch (used by webpack) doesn't reliably match
