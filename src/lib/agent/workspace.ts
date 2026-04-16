@@ -66,6 +66,8 @@ export async function ensureWorkspace(opts: CloneOrPullOptions): Promise<string>
     await exec("git", ["config", "credential.helper", ""], { cwd: workspacePath })
     // Fetch so remote HEAD is up to date before we try to resolve it.
     await exec("git", ["fetch", "origin"], { cwd: workspacePath })
+    // Ensure refs/remotes/origin/HEAD is set — git clone doesn't always set it.
+    await exec("git", ["remote", "set-head", "origin", "--auto"], { cwd: workspacePath }).catch(() => {})
 
     // Resolve the branch to checkout: prefer DB value, fall back to actual remote HEAD.
     let defaultBranch = opts.defaultBranch ?? "main"
