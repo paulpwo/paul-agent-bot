@@ -63,7 +63,7 @@ export async function streamToTelegram(opts: StreamToTelegramOpts): Promise<void
             break
 
           case "approval_needed":
-            await handleApprovalRequest({ bot, chatId, event, taskId })
+            await handleApprovalRequest({ bot, chatId, event, taskId, threadId })
             break
 
           case "done":
@@ -103,8 +103,9 @@ async function handleApprovalRequest(opts: {
   chatId: number
   event: Extract<StreamEvent, { type: "approval_needed" }>
   taskId: string
+  threadId?: number
 }): Promise<void> {
-  const { bot, chatId, event } = opts
+  const { bot, chatId, event, threadId } = opts
 
   const keyboard = new InlineKeyboard()
     .text("✅ Approve", `approve:${event.approvalId}`)
@@ -116,6 +117,7 @@ async function handleApprovalRequest(opts: {
     {
       parse_mode: "Markdown",
       reply_markup: keyboard,
+      ...(threadId ? { message_thread_id: threadId } : {}),
     }
   )
 }
