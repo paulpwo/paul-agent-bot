@@ -1,5 +1,8 @@
 # PaulAgentBot
 
+[![CI](https://github.com/paulpwo/paul-agent-bot/actions/workflows/ci.yml/badge.svg)](https://github.com/paulpwo/paul-agent-bot/actions/workflows/ci.yml)
+[![Deploy](https://github.com/paulpwo/paul-agent-bot/actions/workflows/deploy.yml/badge.svg)](https://github.com/paulpwo/paul-agent-bot/actions/workflows/deploy.yml)
+
 A self-hosted, multi-channel AI coding agent. Mention `@paulagentbot` in a GitHub issue, send a message on Telegram, or use the web dashboard — the agent reads your code, makes changes, opens pull requests, and reports back. Powered by [Claude Code](https://claude.ai/code).
 
 > Built and maintained by [Paul Osinga](https://github.com/paulpwo).

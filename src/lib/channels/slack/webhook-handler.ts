@@ -8,7 +8,7 @@ import type { SlackEvent } from "@/app/api/webhooks/slack/route"
 const ACK_KEY = (taskId: string) => `slack:ack:${taskId}`
 
 // Parse `/paulagentbot repo owner/name` and similar commands from message text
-function extractCommand(text: string): { command: string; arg?: string } | null {
+export function extractCommand(text: string): { command: string; arg?: string } | null {
   // Strip bot mention (e.g. <@U123ABC>)
   const clean = text.replace(/<@[A-Z0-9]+>/g, "").trim()
   const match = clean.match(/^\/paulagentbot\s+(\w+)(?:\s+(.+))?$|^(\w+)(?:\s+(.+))?$/)
