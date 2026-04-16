@@ -46,11 +46,13 @@ export async function POST() {
           workspacePath,
           queueName: repoToQueueName(repo.full_name),
           githubInstallId: installation.id,
+          defaultBranch: repo.default_branch ?? "main",
         },
         update: {
           fullName: repo.full_name,
           workspacePath,
           githubInstallId: installation.id,
+          defaultBranch: repo.default_branch ?? "main",
         },
       })
     }
