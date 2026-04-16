@@ -22,6 +22,8 @@ export async function watchTaskStream(bot: Bot<any>, taskId: string): Promise<vo
   const chatId = parseInt(chatIdStr, 10)
   const messageId = parseInt(msgIdStr, 10)
   const isVoice = (await redis.get(`tg:voice:${taskId}`)) === "1"
+  const threadIdStr = await redis.get(`tg:thread:${taskId}`)
+  const threadId = threadIdStr ? parseInt(threadIdStr, 10) : undefined
 
   // Race condition fallback: task already completed before we subscribed
   const existing = await db.task.findUnique({
@@ -30,7 +32,7 @@ export async function watchTaskStream(bot: Bot<any>, taskId: string): Promise<vo
   })
 
   if (existing?.status === "COMPLETED") {
-    await resolveTask({ bot, chatId, messageId, taskId, result: existing.result ?? "", isVoice })
+    await resolveTask({ bot, chatId, messageId, taskId, result: existing.result ?? "", isVoice, threadId })
     return
   }
   if (existing?.status === "FAILED" || existing?.status === "CANCELLED") {
@@ -39,7 +41,7 @@ export async function watchTaskStream(bot: Bot<any>, taskId: string): Promise<vo
   }
 
   try {
-    await streamToTelegram({ bot, taskId, chatId, messageId, isVoice })
+    await streamToTelegram({ bot, taskId, chatId, messageId, isVoice, threadId })
   } catch (err) {
     logger.error(`Stream error for task ${taskId}:`, err)
     // Error already shown via editMessageText in adapter — no duplicate message
@@ -68,8 +70,9 @@ export async function resolveTask(opts: {
   taskId: string
   result: string
   isVoice: boolean
+  threadId?: number
 }): Promise<void> {
-  const { bot, chatId, messageId, result, isVoice } = opts
+  const { bot, chatId, messageId, result, isVoice, threadId } = opts
 
   if (!isVoice) {
     try {
@@ -118,6 +121,7 @@ export async function resolveTask(opts: {
     const token = process.env.TELEGRAM_BOT_TOKEN!
     const form = new FormData()
     form.append("chat_id", String(chatId))
+    if (threadId) form.append("message_thread_id", String(threadId))
     form.append("voice", new Blob([audioBuffer], { type: "audio/ogg" }), "response.ogg")
 
     const sendRes = await fetch(`https://api.telegram.org/bot${token}/sendVoice`, {

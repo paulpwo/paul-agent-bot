@@ -63,6 +63,9 @@ export function registerMessageHandler(bot: Bot<BotContext>): void {
     const { redis } = await import("@/lib/redis/client")
     await redis.set(`tg:ack:${task.id}`, String(ackMsg.message_id), "EX", 3600)
     await redis.set(`tg:chat:${task.id}`, String(ctx.chat.id), "EX", 3600)
+    if (scope.threadId && scope.threadId !== "0") {
+      await redis.set(`tg:thread:${task.id}`, scope.threadId, "EX", 3600)
+    }
     // Set voice flag BEFORE watchTaskStream — stream-listener reads it immediately on subscribe
     if (voiceReply) await redis.set(`tg:voice:${task.id}`, "1", "EX", 3600)
 

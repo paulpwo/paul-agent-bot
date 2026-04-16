@@ -16,10 +16,11 @@ interface StreamToTelegramOpts {
   chatId: number
   messageId: number   // the ack message to edit
   isVoice?: boolean
+  threadId?: number
 }
 
 export async function streamToTelegram(opts: StreamToTelegramOpts): Promise<void> {
-  const { bot, taskId, chatId, messageId, isVoice } = opts
+  const { bot, taskId, chatId, messageId, isVoice, threadId } = opts
   const channel = STREAM_CHANNEL(taskId)
 
   // Lazy import to avoid circular dependency (stream-listener imports adapter and vice versa)
@@ -68,7 +69,7 @@ export async function streamToTelegram(opts: StreamToTelegramOpts): Promise<void
           case "done":
             clearInterval(editTimer!)
             cleanup()
-            await resolveTask({ bot, chatId, messageId, taskId, result: event.result, isVoice: isVoice ?? false })
+            await resolveTask({ bot, chatId, messageId, taskId, result: event.result, isVoice: isVoice ?? false, threadId })
             resolve()
             break
 
