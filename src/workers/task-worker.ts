@@ -71,6 +71,14 @@ export async function processTask(data: TaskJobData): Promise<void> {
     // Load skills (global + repo CLAUDE.md + .claude/skills/)
     let systemPrompt = loadSkills(workspacePath)
 
+    // Always inject repo context — agent must know which codebase it's in
+    systemPrompt += `\n\n---\n\n## Repository Context
+
+You are working on the repository \`${repo}\` (owner: ${owner}, name: ${name}).
+Workspace path: \`${workspacePath}\`
+
+When the user refers to "this project", "this repo", "este proyecto", "este repo", or asks for a summary/overview without further context — they mean THIS repository. Explore the workspace to answer accurately. Do NOT answer about Telegram, bots, or anything outside the codebase unless explicitly asked.`
+
     // Channel-specific additions
     const extraEnv: Record<string, string> = {}
 
