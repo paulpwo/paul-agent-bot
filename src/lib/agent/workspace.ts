@@ -8,8 +8,10 @@ const exec = promisify(execFile)
 
 const WORKSPACE_BASE = process.env.WORKSPACE_BASE ?? "/data/workspaces"
 
+const REPO_FORMAT = /^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/
+
 export function getWorkspacePath(repo: string): string {
-  // repo = "owner/name" → WORKSPACE_BASE/owner/name
+  if (!REPO_FORMAT.test(repo)) throw new Error(`Invalid repo format: ${repo}`)
   return path.join(WORKSPACE_BASE, repo)
 }
 
@@ -29,6 +31,12 @@ interface CloneOrPullOptions {
 // Clone repo if not exists, pull if exists
 export async function ensureWorkspace(opts: CloneOrPullOptions): Promise<string> {
   const workspacePath = getWorkspacePath(opts.repo)
+
+  // Validate clone URL is HTTPS to a known GitHub host — never SSH, file://, or attacker URLs
+  const parsedUrl = new URL(opts.cloneUrl)
+  if (parsedUrl.protocol !== "https:" || !parsedUrl.hostname.endsWith("github.com")) {
+    throw new Error(`Untrusted clone URL: ${parsedUrl.origin}`)
+  }
 
   if (!existsSync(workspacePath)) {
     await exec("git", ["clone", opts.cloneUrl, workspacePath])

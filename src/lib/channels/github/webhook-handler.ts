@@ -21,8 +21,10 @@ async function checkRateLimits(repo: string, threadId: string): Promise<boolean>
     getSetting(SETTINGS_KEYS.GITHUB_RATE_TASKS_PER_DAY).catch(() => null),
   ])
 
-  const maxPerMinute = perMinuteSetting ? parseInt(perMinuteSetting, 10) : DEFAULT_RATE_COMMENTS_PER_MINUTE
-  const maxPerDay = perDaySetting ? parseInt(perDaySetting, 10) : DEFAULT_RATE_TASKS_PER_DAY
+  const parsedPerMin = perMinuteSetting ? parseInt(perMinuteSetting, 10) : NaN
+  const parsedPerDay = perDaySetting ? parseInt(perDaySetting, 10) : NaN
+  const maxPerMinute = Number.isFinite(parsedPerMin) && parsedPerMin > 0 ? parsedPerMin : DEFAULT_RATE_COMMENTS_PER_MINUTE
+  const maxPerDay    = Number.isFinite(parsedPerDay) && parsedPerDay > 0 ? parsedPerDay : DEFAULT_RATE_TASKS_PER_DAY
 
   const minuteKey = `github:rl:thread:${repo}:${threadId}`
   const dayKey = `github:rl:daily:${new Date().toISOString().slice(0, 10)}`
@@ -69,11 +71,11 @@ export async function handleWebhookEvent(event: string, payload: Record<string, 
   }
 
   if (event === "pull_request") {
-    if (payload.action === "opened") void handlePROpened(payload)
-    if (payload.action === "closed") void handlePRMerged(payload)  // checks merged internally
+    if (payload.action === "opened") handlePROpened(payload).catch(err => logger.error("handlePROpened failed:", err))
+    if (payload.action === "closed") handlePRMerged(payload).catch(err => logger.error("handlePRMerged failed:", err))
   }
   if (event === "issues" && payload.action === "opened") {
-    void handleIssueOpened(payload)
+    handleIssueOpened(payload).catch(err => logger.error("handleIssueOpened failed:", err))
   }
 }
 
@@ -88,7 +90,7 @@ async function handleIssueComment(payload: Record<string, unknown>): Promise<voi
   const instruction = extractMention(comment.body)
   if (!instruction) return
 
-  void dispatchNotification({
+  dispatchNotification({
     type: "mention",
     repo: repo.full_name,
     threadId: String(issue.number),
@@ -133,7 +135,7 @@ async function handlePRReviewComment(payload: Record<string, unknown>): Promise<
   const instruction = extractMention(comment.body)
   if (!instruction) return
 
-  void dispatchNotification({
+  dispatchNotification({
     type: "mention",
     repo: repo.full_name,
     threadId: String(pr.number),
@@ -158,7 +160,7 @@ async function handlePROpened(payload: Record<string, unknown>): Promise<void> {
   const [owner, name] = repoFullName.split("/")
   const repoRecord = await db.repo.findFirst({ where: { owner, name, enabled: true } })
   if (!repoRecord) return
-  void dispatchNotification({
+  dispatchNotification({
     type: "pr_opened",
     repo: repoFullName,
     threadId: String(pr?.number ?? ""),
@@ -177,7 +179,7 @@ async function handlePRMerged(payload: Record<string, unknown>): Promise<void> {
   const [owner, name] = repoFullName.split("/")
   const repoRecord = await db.repo.findFirst({ where: { owner, name, enabled: true } })
   if (!repoRecord) return
-  void dispatchNotification({
+  dispatchNotification({
     type: "pr_merged",
     repo: repoFullName,
     threadId: String(pr?.number ?? ""),
@@ -195,7 +197,7 @@ async function handleIssueOpened(payload: Record<string, unknown>): Promise<void
   const [owner, name] = repoFullName.split("/")
   const repoRecord = await db.repo.findFirst({ where: { owner, name, enabled: true } })
   if (!repoRecord) return
-  void dispatchNotification({
+  dispatchNotification({
     type: "issue_opened",
     repo: repoFullName,
     threadId: String(issue?.number ?? ""),

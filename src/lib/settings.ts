@@ -30,7 +30,11 @@ export async function setSetting(key: string, value: string): Promise<void> {
 export async function getSettingJson<T>(key: string): Promise<T | null> {
   const raw = await getSetting(key)
   if (!raw) return null
-  return JSON.parse(raw) as T
+  try {
+    return JSON.parse(raw) as T
+  } catch {
+    return null
+  }
 }
 
 export async function setSettingJson(key: string, value: unknown): Promise<void> {
