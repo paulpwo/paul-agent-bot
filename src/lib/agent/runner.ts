@@ -5,6 +5,22 @@ import { redis } from "@/lib/redis/client"
 import { checkPathPermission, requestHITLApproval } from "./permissions"
 import { createLogger } from "@/lib/logger"
 import path from "path"
+import fs from "fs/promises"
+
+// Repo-tracked agent config (skills, MCPs). Copied into agentHome/.claude/ before each spawn
+// so the subprocess picks them up regardless of environment. Override via PAULBOT_AGENT_CONFIG.
+const AGENT_CONFIG_DIR = process.env.PAULBOT_AGENT_CONFIG
+  ?? path.resolve(process.cwd(), "agent-config")
+
+async function prepareAgentHome(agentHome: string): Promise<void> {
+  const targetDir = path.join(agentHome, ".claude")
+  await fs.mkdir(targetDir, { recursive: true })
+  try {
+    await fs.cp(AGENT_CONFIG_DIR, targetDir, { recursive: true, force: true })
+  } catch {
+    // agent-config dir missing or unreadable — proceed without it
+  }
+}
 
 const logger = createLogger("runner")
 
@@ -88,6 +104,8 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
     const agentHome = isRoot
       ? "/tmp"
       : (process.env.PAULBOT_AGENT_HOME ?? path.resolve(process.cwd(), ".agent-home"))
+
+    await prepareAgentHome(agentHome)
 
     const child = spawn("claude", args, {
       cwd: opts.workspacePath,

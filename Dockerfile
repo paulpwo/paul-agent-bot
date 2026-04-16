@@ -127,6 +127,9 @@ RUN mkdir -p ./node_modules/better-sqlite3/build/Release
 COPY --from=sqlite-binary /tmp/sqlite/node_modules/better-sqlite3/build/Release/better_sqlite3.node \
   ./node_modules/better-sqlite3/build/Release/better_sqlite3.node
 
+# Agent config — skills and MCPs tracked in git, customizable per deployment
+COPY --from=builder /app/agent-config ./agent-config
+
 # Compiled worker bundle
 COPY --from=builder /app/workers-entrypoint.js ./
 

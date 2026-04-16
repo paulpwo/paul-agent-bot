@@ -40,6 +40,12 @@ services:
       - type: bind
         source: /data/paulagentbot.db
         target: /data/paulagentbot.db
+      # Optional: override agent-config (skills/MCPs) without rebuilding the image.
+      # Copy agent-config/ to /data/agent-config on the host, then uncomment:
+      # - type: bind
+      #   source: /data/agent-config
+      #   target: /app/agent-config
+      #   read_only: true
     environment:
       DATABASE_URL: file:/data/paulagentbot.db
       REDIS_URL: redis://redis:6379
