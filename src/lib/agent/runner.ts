@@ -5,8 +5,28 @@ import { redis } from "@/lib/redis/client"
 import { checkPathPermission, requestHITLApproval } from "./permissions"
 import path from "path"
 
-// Tools that require explicit HITL approval before proceeding
-const APPROVAL_REQUIRED_TOOLS = new Set(["Bash"])
+// Bash patterns that require explicit HITL approval — everything else auto-approves.
+// Path isolation (checkPathPermission) already blocks workspace escapes.
+const DANGEROUS_BASH_PATTERNS = [
+  /\brm\s+(-[rRfFidI]*\s+)*[~/]/, // rm targeting absolute or home paths
+  /\bgit\s+push\b.*--force/,       // force push
+  /\bgit\s+reset\s+--hard/,        // hard reset
+  /\bgit\s+clean\s+-[^-]*[fd]/,    // git clean -fd (destroys untracked files)
+  /\bsudo\b/,                       // privilege escalation
+  /\|\s*(bash|sh|zsh|csh|fish)\b/, // pipe to shell
+  /\beval\s+/,                      // eval
+  /\bdrop\s+table\b/i,              // SQL destructive
+  /\bdelete\s+from\b/i,
+  /\btruncate\s+table\b/i,
+]
+
+function isBashDangerous(input: unknown): boolean {
+  const cmd =
+    typeof input === "object" && input !== null && "command" in input
+      ? String((input as { command: unknown }).command)
+      : String(input)
+  return DANGEROUS_BASH_PATTERNS.some(p => p.test(cmd))
+}
 
 export interface RunAgentOptions {
   taskId: string
@@ -118,8 +138,8 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
                 return
               }
 
-              // HITL gate — pause readline so we don't race ahead while waiting
-              if (APPROVAL_REQUIRED_TOOLS.has(toolName)) {
+              // HITL gate — only for dangerous Bash patterns; safe reads auto-approve
+              if (toolName === "Bash" && isBashDangerous(block.input)) {
                 rl.pause()
                 const decision = await requestHITLApproval({
                   taskId: opts.taskId,
