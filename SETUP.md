@@ -217,11 +217,29 @@ claude                # re-authenticate if empty
 ### GitHub webhook 401
 `GITHUB_APP_WEBHOOK_SECRET` in `.env` doesn't match what you set in GitHub App settings. They must be identical — no trailing spaces.
 
-### `gyp: No Xcode or CLT version detected` (macOS)
+### `Could not locate the bindings file` — better-sqlite3 (macOS)
+
+`better-sqlite3` is a native addon that must be compiled for your exact Node.js version and CPU architecture. The binary is not included in the repo.
+
+**Step 1 — try the standard rebuild:**
 ```bash
-xcode-select --install
 pnpm rebuild better-sqlite3
 ```
+
+**Step 2 — if that fails or produces no binary, force recompile with node-gyp:**
+```bash
+cd node_modules/better-sqlite3
+npx node-gyp rebuild
+cd ../..
+```
+
+**Step 3 — if node-gyp reports missing Xcode CLT:**
+```bash
+xcode-select --install
+# then repeat Step 2
+```
+
+This affects every developer on a fresh clone, after switching Node.js versions, or after upgrading better-sqlite3. The binary is machine-specific — it is gitignored and never committed.
 
 ### Telegram `409 Conflict`
 Another instance running with the same token. Stop all other instances before starting.

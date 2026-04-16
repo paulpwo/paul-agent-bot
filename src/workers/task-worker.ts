@@ -61,7 +61,7 @@ export async function processTask(data: TaskJobData): Promise<void> {
     const cloneUrl = await getAuthenticatedCloneUrl(repo, installationId)
 
     // Ensure workspace (clone or pull)
-    const workspacePath = await ensureWorkspace({ repo, cloneUrl })
+    const workspacePath = await ensureWorkspace({ repo, cloneUrl, defaultBranch: repoRecord.defaultBranch ?? "main" })
     logger.info(`Workspace ready: ${workspacePath}`)
 
     // Create task branch: paulagentbot/<threadId>
