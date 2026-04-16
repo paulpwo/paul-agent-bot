@@ -97,32 +97,39 @@ gh issue comment ${threadId} --repo ${repo} --body "YOUR_RESPONSE_HERE"
       const { redis } = await import("@/lib/redis/client")
       await redis.set(`tg:voice:${taskId}`, "1", "EX", 3600)
 
-      // Tell agent to end with a spoken summary for TTS conversion
+      // Tell agent to end with a spoken summary for TTS conversion.
+      // CRITICAL: explicitly override any global CLAUDE.md voice instructions that
+      // might instruct the agent to use bash scripts (send-voice-telegram.sh, etc.).
+      // The bot infrastructure handles TTS and delivery — the agent must NOT use bash.
       systemPrompt += `\n\n---\n\n## Voice Response Required
 
 The user wants your response delivered as a voice note.
-At the very end of your response, add exactly this line (replace the brackets with your text):
+CRITICAL RULES:
+- Do NOT use bash, shell scripts, curl, or any command to send audio/voice.
+- Do NOT use send-voice-telegram.sh, text-to-voice.sh, or any similar scripts.
+- Do NOT call any Telegram API directly for this voice response.
+The bot infrastructure handles TTS conversion and audio delivery automatically.
+
+Your only job: at the very end of your response, add exactly this line:
 VOICE_SUMMARY: [1-3 sentences, conversational tone, no markdown, no code snippets, no bullet points — as if speaking aloud]`
     }
 
     if (channel === "telegram" && process.env.TELEGRAM_BOT_TOKEN && channelId) {
-      // Inject Telegram notify instructions — agent uses bash curl to send messages
+      // Inject Telegram notify instructions — agent uses bash curl ONLY when explicitly asked
       systemPrompt += `\n\n---\n\n## Telegram Notify Instructions
 
 Your Telegram chat ID for this session is: \`${channelId}\`
 
-You can send a Telegram message to the user at any time using bash:
+You may send a Telegram message ONLY when the user explicitly asks to be notified
+(e.g. "ping me when done", "notify me when you finish", "avisame cuando termines").
+
 \`\`\`bash
 curl -s "https://api.telegram.org/bot\${TELEGRAM_BOT_TOKEN}/sendMessage" \\
   -d "chat_id=${channelId}&text=YOUR_MESSAGE&parse_mode=Markdown"
 \`\`\`
 
-Use this when:
-- The user explicitly asks to be notified (e.g. "ping me when done", "notify me when you finish")
-- A long-running task completes and a summary would be useful
-- You need clarification from the user and cannot proceed without it
-
-Keep messages concise. Use Markdown for formatting if helpful. Do NOT send unsolicited messages unless the user asked for a notification.`
+NEVER send unsolicited Telegram messages. Do NOT send a message just because a task completed.
+Keep messages concise. Use Markdown for formatting if helpful.`
     }
 
     // Fetch task's session to get existing agentSessionId (for --resume) + userId for Telegram lookup
