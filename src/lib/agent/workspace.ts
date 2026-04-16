@@ -6,19 +6,16 @@ import { db } from "@/lib/db/client"
 
 const execRaw = promisify(execFile)
 
-// Git env: disable interactive credential prompts and keychain storage.
-// The clone URL already contains the token — no need to store anything.
-const GIT_ENV = {
-  ...process.env,
-  GIT_TERMINAL_PROMPT: "0",
-  GIT_ASKPASS: "echo",
-  GIT_CONFIG_COUNT: "1",
-  GIT_CONFIG_KEY_0: "credential.helper",
-  GIT_CONFIG_VALUE_0: "",
-}
+// Git env: disable interactive terminal credential prompts.
+// credential.helper is disabled via -c flag (more reliable than env vars —
+// GIT_CONFIG_COUNT requires git ≥ 2.32 and env vars don't override osxkeychain GUI).
+const GIT_ENV = { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_ASKPASS: "echo" }
 
+// Prepend -c credential.helper= to every git invocation so macOS Keychain is
+// never invoked. The clone URL already contains the token — nothing to store.
 function exec(cmd: string, args: string[], opts?: { cwd?: string }): ReturnType<typeof execRaw> {
-  return execRaw(cmd, args, { ...opts, env: GIT_ENV })
+  const finalArgs = cmd === "git" ? ["-c", "credential.helper=", ...args] : args
+  return execRaw(cmd, finalArgs, { ...opts, env: GIT_ENV })
 }
 
 const WORKSPACE_BASE = process.env.WORKSPACE_BASE ?? "/data/workspaces"
