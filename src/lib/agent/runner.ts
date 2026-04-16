@@ -93,6 +93,10 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
       cwd: opts.workspacePath,
       stdio: ["ignore", "pipe", "pipe"],  // stdin → /dev/null, capture stdout/stderr
       env: { ...process.env, HOME: agentHome, ...(opts.extraEnv ?? {}) },
+      // detached: put claude in its own process group so Next.js dev hot-reload SIGTERM
+      // doesn't propagate to active tasks. We still read stdout/stderr via pipes.
+      // The abort handler and timeout still work via child.kill().
+      detached: true,
       ...(isRoot ? { uid: 1001, gid: 1001 } : {}),
     })
 

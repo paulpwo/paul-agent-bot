@@ -41,7 +41,12 @@ async function recoverStuckTasks(): Promise<void> {
   }
 }
 
+let workersStarted = false
+
 export async function startWorkers(): Promise<void> {
+  if (workersStarted) return  // guard: Next.js calls register() multiple times in dev mode
+  workersStarted = true
+
   await recoverStuckTasks()
 
   // Load all enabled repos and register a BullMQ worker for each

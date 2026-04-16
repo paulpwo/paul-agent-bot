@@ -12,7 +12,7 @@ let currentBot: Bot<BotContext> | null = null
 let isStarting = false
 
 export async function startTelegramBot(): Promise<void> {
-  if (isStarting) return
+  if (isStarting || currentBot !== null) return  // guard against double-init (Next.js calls register() multiple times in dev)
   isStarting = true
 
   try {
