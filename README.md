@@ -498,6 +498,18 @@ Copyright 2025 Paul Osinga. Licensed under the [Apache License, Version 2.0](LIC
 
 ---
 
+## Screenshots
+
+| Login | Dashboard |
+|-------|-----------|
+| ![Login](screenshots/01-login-dark.png) | ![Dashboard](screenshots/02-dashboard.png) |
+
+| Chat | Tasks |
+|------|-------|
+| ![Chat](screenshots/03-chat.png) | ![Tasks](screenshots/04-tasks.png) |
+
+---
+
 ## Contributors
 
 [![Contributors](https://contrib.rocks/image?repo=paulpwo/paul-agent-bot)](https://github.com/paulpwo/paul-agent-bot/graphs/contributors)
