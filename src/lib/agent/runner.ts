@@ -68,6 +68,22 @@ export interface RunAgentResult {
 }
 
 export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
+  const isRoot = process.getuid?.() === 0
+
+  // Use an isolated agent HOME so the subprocess does NOT read the user's personal
+  // ~/.claude/CLAUDE.md (which contains personal assistant instructions like voice-note
+  // bash scripts that conflict with the bot's TTS pipeline).
+  // - Local dev (non-root): .agent-home/ in the project root — has a minimal CLAUDE.md.
+  //   macOS Keychain handles auth so HOME doesn't affect credentials.
+  // - Docker (root): /tmp — auth comes from CLAUDE_CODE_OAUTH_TOKEN env var.
+  const agentHome = isRoot
+    ? "/tmp"
+    : (process.env.PAULBOT_AGENT_HOME ?? path.resolve(process.cwd(), ".agent-home"))
+
+  // Copy agent-config/ (skills, MCPs) into agentHome/.claude/ so the subprocess picks
+  // them up. Must happen before spawn — await is valid here in the async function body.
+  await prepareAgentHome(agentHome)
+
   return new Promise((resolve) => {
     const args: string[] = [
       "--print",
@@ -89,23 +105,6 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
     }
 
     args.push("--", opts.prompt)  // "--" ends flag parsing — prevents prompts starting with "-" from being treated as options
-
-    // Drop from root to uid 1001 (nextjs) so claude --dangerously-skip-permissions works.
-    // HOME → /tmp so claude can write its working files (settings, session state).
-    // Auth is via CLAUDE_CODE_OAUTH_TOKEN env var — no .claude directory needed.
-    const isRoot = process.getuid?.() === 0
-
-    // Use an isolated agent HOME so the subprocess does NOT read the user's personal
-    // ~/.claude/CLAUDE.md (which contains personal assistant instructions like voice-note
-    // bash scripts that conflict with the bot's TTS pipeline).
-    // - Local dev (non-root): .agent-home/ in the project root — has a minimal CLAUDE.md.
-    //   macOS Keychain handles auth so HOME doesn't affect credentials.
-    // - Docker (root): /tmp — auth comes from CLAUDE_CODE_OAUTH_TOKEN env var.
-    const agentHome = isRoot
-      ? "/tmp"
-      : (process.env.PAULBOT_AGENT_HOME ?? path.resolve(process.cwd(), ".agent-home"))
-
-    await prepareAgentHome(agentHome)
 
     const child = spawn("claude", args, {
       cwd: opts.workspacePath,
