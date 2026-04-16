@@ -15,7 +15,9 @@
     "postinstall": "prisma generate",
     "worker": "tsx workers-entrypoint.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
+    "prisma:reset": "rm -rf dev.db && pnpm exec prisma migrate reset --force"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

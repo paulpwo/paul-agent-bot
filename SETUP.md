@@ -67,10 +67,16 @@ Copy the Client ID and Secret into `.env`.
 ### 4. Run database migrations
 
 ```bash
-pnpm dlx prisma migrate dev --name init
+pnpm exec prisma migrate dev --name init
 ```
 
 Creates `dev.db` and generates the Prisma client. Run once on first setup.
+
+To wipe and recreate the local database from scratch:
+
+```bash
+pnpm prisma:reset
+```
 
 ### 5. Start
 
