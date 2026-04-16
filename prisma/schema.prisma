@@ -39,6 +39,7 @@ model Session {
   threadId       String   // topic_id, thread_ts, issue_number, email_thread
   repo           String   // "owner/name"
   agentSessionId String?  // claude-code session id for continuity
+  currentBranch  String?  // workspace branch at end of last task — next task resumes from here
   userId         String?
   user           User?    @relation(fields: [userId], references: [id])
   createdAt      DateTime @default(now())

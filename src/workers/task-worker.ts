@@ -1,5 +1,5 @@
 import { db } from "@/lib/db/client"
-import { ensureWorkspace, createTaskBranch, getWorkspacePath } from "@/lib/agent/workspace"
+import { ensureWorkspace, checkoutOrCreateBranch, getWorkspacePath } from "@/lib/agent/workspace"
 import { loadSkills } from "@/lib/agent/skills"
 import { runAgent } from "@/lib/agent/runner"
 import { getAuthenticatedCloneUrl, getInstallationToken } from "@/lib/agent/token-refresh"
@@ -64,8 +64,15 @@ export async function processTask(data: TaskJobData): Promise<void> {
     const workspacePath = await ensureWorkspace({ repo, cloneUrl, defaultBranch: repoRecord.defaultBranch ?? "main" })
     logger.info(`Workspace ready: ${workspacePath}`)
 
-    // Create task branch: paulagentbot/<threadId>
-    const branchName = await createTaskBranch(workspacePath, `paulagentbot/${threadId}`)
+    // Load session to get currentBranch (branch agent was on at end of previous task)
+    const sessionRecord = await db.session.findFirst({
+      where: { channel, channelId, threadId, repo },
+      select: { currentBranch: true },
+    })
+
+    // Resume from last known branch, or create the session branch if starting fresh
+    const targetBranch = sessionRecord?.currentBranch ?? `paulagentbot/${threadId}`
+    const branchName = await checkoutOrCreateBranch(workspacePath, targetBranch)
     logger.info(`Branch: ${branchName}`)
 
     // Load skills (global + repo CLAUDE.md + .claude/skills/)
@@ -145,10 +152,10 @@ NEVER send unsolicited Telegram messages. Do NOT send a message just because a t
 Keep messages concise. Use Markdown for formatting if helpful.`
     }
 
-    // Fetch task's session to get existing agentSessionId (for --resume) + userId for Telegram lookup
+    // Fetch task's session to get agentSessionId (--resume), currentBranch, userId
     const taskRecord = await db.task.findUnique({
       where: { id: taskId },
-      select: { sessionId: true, userId: true, session: { select: { agentSessionId: true } } },
+      select: { sessionId: true, userId: true, session: { select: { agentSessionId: true, currentBranch: true } } },
     })
 
     // For chat channel: inject Telegram notify instructions if the user has a linked Telegram session
@@ -232,6 +239,24 @@ Keep messages concise. Use Markdown for formatting if helpful.`
         where: { id: taskRecord.sessionId },
         data: { agentSessionId: null },
       })
+    }
+
+    // Detect which branch the agent ended up on and persist it in the session.
+    // This lets the next message resume from whatever branch the agent created/switched to.
+    try {
+      const { stdout: headBranch } = await exec("git", ["branch", "--show-current"], { cwd: workspacePath })
+      const actualBranch = headBranch.trim()
+      if (actualBranch && taskRecord?.sessionId) {
+        await db.session.update({
+          where: { id: taskRecord.sessionId },
+          data: { currentBranch: actualBranch },
+        })
+        if (actualBranch !== branchName) {
+          logger.info(`Branch updated: ${branchName} → ${actualBranch}`)
+        }
+      }
+    } catch {
+      // Non-fatal — worst case next task recreates the session branch
     }
 
     // Push branch to remote (best-effort — don't fail the task if push fails)

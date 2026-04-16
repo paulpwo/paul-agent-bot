@@ -64,27 +64,30 @@ export function ChatPage({ initialSession, initialMessages, recentSessions, repo
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const activeEvtSource = useRef<EventSource | null>(null)
+  const sessionIdRef = useRef<string | undefined>(initialSession?.id)
 
   const hasStartedChat = messages.length > 0
 
-  // Fetch branches when repo changes
-  useEffect(() => {
-    if (!selectedRepo) return
-    fetch(`/api/repos/branches?repo=${encodeURIComponent(selectedRepo)}`)
+  // Fetch branches and resolve current branch from session state
+  const refreshBranches = (repo: string) => {
+    fetch(`/api/repos/branches?repo=${encodeURIComponent(repo)}`)
       .then((r) => r.json())
       .then((data: { branches: string[]; current: string | null }) => {
         setBranches(data.branches ?? [])
-        // If session has a threadId, prefer paulagentbot/<threadId> branch
-        const sessionBranch = initialSession?.threadId
-          ? `paulagentbot/${initialSession.threadId}`
-          : null
+        // Priority: session.currentBranch (actual branch agent is on) > paulagentbot/<threadId> > workspace HEAD
         const resolved =
-          sessionBranch && (data.branches ?? []).includes(sessionBranch)
-            ? sessionBranch
-            : data.current ?? "main"
+          initialSession?.currentBranch ??
+          (initialSession?.threadId && (data.branches ?? []).includes(`paulagentbot/${initialSession.threadId}`)
+            ? `paulagentbot/${initialSession.threadId}`
+            : data.current ?? "main")
         setCurrentBranch(resolved)
       })
       .catch(() => {})
+  }
+
+  useEffect(() => {
+    if (!selectedRepo) return
+    refreshBranches(selectedRepo)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRepo])
 
@@ -159,6 +162,16 @@ export function ChatPage({ initialSession, initialMessages, recentSessions, repo
           msg.approvalRequest = undefined
           evtSource.close()
           setIsStreaming(false)
+          // Re-fetch session to get updated currentBranch — use ref to avoid stale closure
+          const sid = sessionIdRef.current
+          if (sid) {
+            fetch(`/api/chat/sessions/${sid}`)
+              .then((r) => r.json())
+              .then((s: { currentBranch?: string }) => {
+                if (s.currentBranch) setCurrentBranch(s.currentBranch)
+              })
+              .catch(() => {})
+          }
         } else if (event.type === "error") {
           msg.content = (event as { message?: string }).message ?? ""
           msg.status = "error"
@@ -225,6 +238,7 @@ export function ChatPage({ initialSession, initialMessages, recentSessions, repo
 
       if (!sessionId) {
         setSessionId(data.sessionId)
+        sessionIdRef.current = data.sessionId
         // Use history.replaceState instead of router.replace to avoid
         // unmounting this component (and killing the active EventSource stream)
         window.history.replaceState(null, "", `/dashboard/chat/${data.sessionId}`)

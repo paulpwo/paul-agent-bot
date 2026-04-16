@@ -77,7 +77,7 @@ export async function ensureWorkspace(opts: CloneOrPullOptions): Promise<string>
         "git", ["symbolic-ref", "refs/remotes/origin/HEAD", "--short"],
         { cwd: workspacePath }
       )
-      defaultBranch = stdout.trim().replace(/^origin\//, "")
+      defaultBranch = stdout.toString().trim().replace(/^origin\//, "")
       await exec("git", ["checkout", defaultBranch], { cwd: workspacePath })
     }
 
@@ -93,7 +93,20 @@ export async function ensureWorkspace(opts: CloneOrPullOptions): Promise<string>
   return workspacePath
 }
 
-// Create a branch for a task (with collision handling)
+// Checkout existing branch or create it. Used for session branches so every
+// message in the same session reuses the same branch instead of creating -2, -3, etc.
+export async function checkoutOrCreateBranch(workspacePath: string, branchName: string): Promise<string> {
+  try {
+    // Branch already exists locally — just switch to it
+    await exec("git", ["checkout", branchName], { cwd: workspacePath })
+  } catch {
+    // Branch doesn't exist — create it from current HEAD
+    await exec("git", ["checkout", "-b", branchName], { cwd: workspacePath })
+  }
+  return branchName
+}
+
+// Create a branch for a task (with collision handling) — kept for callers that need unique names
 export async function createTaskBranch(workspacePath: string, baseName: string): Promise<string> {
   let branchName = baseName
   let suffix = 1
