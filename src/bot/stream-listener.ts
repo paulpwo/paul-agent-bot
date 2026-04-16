@@ -42,9 +42,7 @@ export async function watchTaskStream(bot: Bot<any>, taskId: string): Promise<vo
     await streamToTelegram({ bot, taskId, chatId, messageId, isVoice })
   } catch (err) {
     logger.error(`Stream error for task ${taskId}:`, err)
-    try {
-      await bot.api.sendMessage(chatId, `❌ Task failed: ${err instanceof Error ? err.message : "Unknown error"}`)
-    } catch { /* non-fatal */ }
+    // Error already shown via editMessageText in adapter — no duplicate message
   }
 }
 

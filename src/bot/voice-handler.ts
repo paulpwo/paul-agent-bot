@@ -67,14 +67,6 @@ export function registerVoiceHandler(bot: Bot<BotContext>): void {
         return
       }
 
-      // Show transcription
-      await bot.api.editMessageText(
-        ctx.chat.id,
-        statusMsg.message_id,
-        `🎤 _Transcribed:_\n\n${transcript}`,
-        { parse_mode: "Markdown" }
-      )
-
       const scope = getScopeKey(ctx)
       await getOrCreateSession(scope, repo)
 
@@ -102,11 +94,16 @@ export function registerVoiceHandler(bot: Bot<BotContext>): void {
 
       const voiceReply = wantsVoiceReply(transcript)
 
-      const ackMsg = await ctx.reply("⚡ Working on it...", {
-        reply_parameters: { message_id: ctx.message.message_id },
-      })
+      // Reuse the transcription status message as the ack — edit it to show
+      // the transcript + working state. No second message needed.
+      await bot.api.editMessageText(
+        ctx.chat.id,
+        statusMsg.message_id,
+        `🎤 _${transcript}_\n\n⚡ Working on it...`,
+        { parse_mode: "Markdown" }
+      )
 
-      await redis.set(`tg:ack:${task.id}`, String(ackMsg.message_id), "EX", 3600)
+      await redis.set(`tg:ack:${task.id}`, String(statusMsg.message_id), "EX", 3600)
       await redis.set(`tg:chat:${task.id}`, String(ctx.chat.id), "EX", 3600)
 
       const jobId = await enqueueTask({
