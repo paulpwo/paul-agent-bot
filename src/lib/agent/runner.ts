@@ -18,6 +18,7 @@ export interface RunAgentOptions {
   agentSessionId?: string
   abortSignal?: AbortSignal
   extraEnv?: Record<string, string>
+  suppressStreamError?: boolean  // don't publish error events — caller handles retry
 }
 
 export interface RunAgentResult {
@@ -74,6 +75,7 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
 
     // Handle abort
     opts.abortSignal?.addEventListener("abort", () => {
+      console.warn(`[runner] AbortSignal fired for task ${opts.taskId} — killing claude`)
       child.kill("SIGTERM")
     })
 
@@ -111,7 +113,7 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
               // Check path safety before publishing tool use
               const pathDecision = checkPathPermission(toolName, block.input)
               if (pathDecision === "deny") {
-                // Kill the process — workspace violation
+                console.warn(`[runner] Path isolation kill — task ${opts.taskId} tool ${toolName} input: ${JSON.stringify(block.input)}`)
                 child.kill("SIGTERM")
                 return
               }
@@ -169,11 +171,14 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
         resolve({ success: true, output, sessionId: capturedSessionId })
       } else {
         const errMsg = stderrOutput || `Process exited with code ${code}`
-        await publishStream(redis, opts.taskId, {
-          type: "error",
-          taskId: opts.taskId,
-          message: errMsg,
-        })
+        // suppressStreamError: caller handles retry (e.g. stale --resume) — don't close the stream
+        if (!opts.suppressStreamError) {
+          await publishStream(redis, opts.taskId, {
+            type: "error",
+            taskId: opts.taskId,
+            message: errMsg,
+          })
+        }
         resolve({ success: false, output, error: errMsg })
       }
     })

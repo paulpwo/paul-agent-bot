@@ -161,16 +161,19 @@ Keep messages concise. Use Markdown for formatting if helpful.`
       }
     }
 
-    // Run the agent
+    // Run the agent — suppress stream errors when using --resume so a stale session
+    // failure doesn't close the stream before the retry publishes its result
+    const resumeSessionId = taskRecord?.session?.agentSessionId ?? undefined
     let result = await runAgent({
       taskId,
       prompt,
       workspacePath,
       systemPrompt,
       channel,
-      agentSessionId: taskRecord?.session?.agentSessionId ?? undefined,
+      agentSessionId: resumeSessionId,
       abortSignal: abortController.signal,
       extraEnv,
+      suppressStreamError: !!resumeSessionId,
     })
 
     // If --resume failed because the session no longer exists (container restart wipes /tmp),
