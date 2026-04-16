@@ -76,6 +76,7 @@ services:
       DATABASE_URL: file:/data/paulagentbot.db
       REDIS_URL: redis://redis:6379
       WORKSPACE_BASE: /data/workspaces
+      WORKER_ONLY: "true"
     # No port mapping — worker is internal only
 
   # ── Caddy (TLS + reverse proxy) ───────────────────────────────────────────────
