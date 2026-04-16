@@ -19,6 +19,9 @@ export async function processTask(data: TaskJobData): Promise<void> {
   const { taskId, repo, prompt, channel, channelId, threadId, voiceReply } = data
   const [owner, name] = repo.split("/")
 
+  const promptSnippet = prompt.slice(0, 120).replace(/\n/g, " ")
+  logger.info(`Task START  ${taskId} | ${repo} | ${channel}:${channelId} | "${promptSnippet}"`)
+
   // Mark task as RUNNING
   await db.task.update({
     where: { id: taskId },
@@ -59,9 +62,11 @@ export async function processTask(data: TaskJobData): Promise<void> {
 
     // Ensure workspace (clone or pull)
     const workspacePath = await ensureWorkspace({ repo, cloneUrl })
+    logger.info(`Workspace ready: ${workspacePath}`)
 
     // Create task branch: paulagentbot/<threadId>
     const branchName = await createTaskBranch(workspacePath, `paulagentbot/${threadId}`)
+    logger.info(`Branch: ${branchName}`)
 
     // Load skills (global + repo CLAUDE.md + .claude/skills/)
     let systemPrompt = loadSkills(workspacePath)
@@ -164,6 +169,7 @@ Keep messages concise. Use Markdown for formatting if helpful.`
     // Voice tasks always start fresh — no --resume — to prevent prior session context
     // (voice script instructions, tool attempts) from leaking into the new task.
     const resumeSessionId = voiceReply ? undefined : (taskRecord?.session?.agentSessionId ?? undefined)
+    logger.info(`Running agent${resumeSessionId ? ` --resume ${resumeSessionId.slice(0, 8)}...` : " (fresh)"}${voiceReply ? " [voice]" : ""}`)
     let result = await runAgent({
       taskId,
       prompt,
@@ -228,11 +234,14 @@ Keep messages concise. Use Markdown for formatting if helpful.`
         `https://x-access-token:${token}@github.com/${repo}.git`,
         `HEAD:${branchName}`,
       ], { cwd: workspacePath })
+      logger.info(`Pushed ${branchName}`)
     } catch (pushErr) {
       logger.warn(`Push failed for ${repo} — task still marked COMPLETED:`, pushErr)
     }
 
     const durationMs = Date.now() - startTime
+
+    logger.info(`Task DONE   ${taskId} | ${(durationMs / 1000).toFixed(1)}s | ${result.output.length} chars output`)
 
     await db.task.update({
       where: { id: taskId },
@@ -246,13 +255,20 @@ Keep messages concise. Use Markdown for formatting if helpful.`
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     const cancelled = abortController.signal.aborted
+    const durationMs = Date.now() - startTime
+
+    if (cancelled) {
+      logger.warn(`Task CANCEL ${taskId} | ${(durationMs / 1000).toFixed(1)}s`)
+    } else {
+      logger.error(`Task FAIL   ${taskId} | ${(durationMs / 1000).toFixed(1)}s | ${message}`)
+    }
 
     await db.task.update({
       where: { id: taskId },
       data: {
         status: cancelled ? "CANCELLED" : "FAILED",
         errorMessage: message,
-        durationMs: Date.now() - startTime,
+        durationMs,
         completedAt: new Date(),
       },
     })
