@@ -69,18 +69,26 @@ export async function ensureWorkspace(opts: CloneOrPullOptions): Promise<string>
     // Ensure refs/remotes/origin/HEAD is set — git clone doesn't always set it.
     await exec("git", ["remote", "set-head", "origin", "--auto"], { cwd: workspacePath }).catch(() => {})
 
-    // Resolve the branch to checkout: prefer DB value, fall back to actual remote HEAD.
-    let defaultBranch = opts.defaultBranch ?? "main"
+    // Resolve the branch to checkout: prefer DB value, then remote HEAD, then "main".
+    // Resolve BEFORE attempting checkout so a wrong DB value doesn't produce an error.
+    let defaultBranch = opts.defaultBranch ?? ""
+    if (!defaultBranch) {
+      try {
+        const { stdout } = await exec(
+          "git", ["symbolic-ref", "refs/remotes/origin/HEAD", "--short"],
+          { cwd: workspacePath }
+        )
+        defaultBranch = stdout.toString().trim().replace(/^origin\//, "") || "main"
+      } catch {
+        defaultBranch = "main"
+      }
+    }
+
     try {
       await exec("git", ["checkout", defaultBranch], { cwd: workspacePath })
     } catch {
-      // DB value wrong or stale — detect remote HEAD and retry once.
-      const { stdout } = await exec(
-        "git", ["symbolic-ref", "refs/remotes/origin/HEAD", "--short"],
-        { cwd: workspacePath }
-      )
-      defaultBranch = stdout.toString().trim().replace(/^origin\//, "")
-      await exec("git", ["checkout", defaultBranch], { cwd: workspacePath })
+      // Branch doesn't exist locally yet — create tracking branch from remote.
+      await exec("git", ["checkout", "-b", defaultBranch, `origin/${defaultBranch}`], { cwd: workspacePath })
     }
 
     await exec("git", ["pull", "--ff-only"], { cwd: workspacePath })

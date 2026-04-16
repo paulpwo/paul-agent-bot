@@ -109,7 +109,11 @@ jobs:
             docker compose pull
             docker compose up -d --remove-orphans
 
-            # Clean up old images (keep last 3)
+            # Clean up old tagged images — keep only the 3 most recent sha- tags
+            docker images --format '{{.Repository}}:{{.Tag}}' \
+              | grep "$ECR_REGISTRY/$ECR_REPOSITORY:sha-" \
+              | tail -n +4 \
+              | xargs -r docker rmi || true
             docker image prune -f
 
       # ── Summary ───────────────────────────────────────────────────────────────
