@@ -4,6 +4,10 @@ FROM node:20-slim AS deps
 
 WORKDIR /app
 
+# Build tools needed to compile better-sqlite3 native addon
+RUN apt-get update -qq && apt-get install -y --no-install-recommends \
+    python3 make g++ \
+  && rm -rf /var/lib/apt/lists/*
 
 COPY package.json pnpm-lock.yaml .npmrc ./
 COPY prisma ./prisma
@@ -97,11 +101,14 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
-# effect is required by @prisma/config (prisma migrate deploy)
+# effect + fast-check + pure-rand required by @prisma/config (prisma migrate deploy)
+# effect/index.js → Arbitrary.js → FastCheck.js → requires fast-check at module load time
 COPY --from=builder /app/node_modules/effect ./node_modules/effect
+COPY --from=builder /app/node_modules/fast-check ./node_modules/fast-check
+COPY --from=builder /app/node_modules/pure-rand ./node_modules/pure-rand
 
 # better-sqlite3 native binary — required by workers-entrypoint.js at runtime
-# Must come from deps stage (where pnpm rebuild better-sqlite3 compiled it), not builder
+# Copied from deps stage where build tools (python3/make/g++) compiled the .node binary
 COPY --from=deps /app/node_modules/better-sqlite3 ./node_modules/better-sqlite3
 COPY --from=deps /app/node_modules/bindings ./node_modules/bindings
 COPY --from=deps /app/node_modules/file-uri-to-path ./node_modules/file-uri-to-path
