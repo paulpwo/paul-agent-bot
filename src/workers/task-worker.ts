@@ -161,9 +161,9 @@ Keep messages concise. Use Markdown for formatting if helpful.`
       }
     }
 
-    // Run the agent — suppress stream errors when using --resume so a stale session
-    // failure doesn't close the stream before the retry publishes its result
-    const resumeSessionId = taskRecord?.session?.agentSessionId ?? undefined
+    // Voice tasks always start fresh — no --resume — to prevent prior session context
+    // (voice script instructions, tool attempts) from leaking into the new task.
+    const resumeSessionId = voiceReply ? undefined : (taskRecord?.session?.agentSessionId ?? undefined)
     let result = await runAgent({
       taskId,
       prompt,
@@ -173,6 +173,7 @@ Keep messages concise. Use Markdown for formatting if helpful.`
       agentSessionId: resumeSessionId,
       abortSignal: abortController.signal,
       extraEnv,
+      // Suppress stream error only when using --resume (stale session failures are retried silently)
       suppressStreamError: !!resumeSessionId,
     })
 

@@ -171,8 +171,9 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
         resolve({ success: true, output, sessionId: capturedSessionId })
       } else {
         const errMsg = stderrOutput || `Process exited with code ${code}`
-        // suppressStreamError: caller handles retry (e.g. stale --resume) — don't close the stream
-        if (!opts.suppressStreamError) {
+        // Only suppress stream error for stale session failures — all other errors must be published
+        const isStaleSession = errMsg.includes("No conversation found with session ID")
+        if (!opts.suppressStreamError || !isStaleSession) {
           await publishStream(redis, opts.taskId, {
             type: "error",
             taskId: opts.taskId,
