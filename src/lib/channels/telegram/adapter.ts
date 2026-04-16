@@ -15,11 +15,15 @@ interface StreamToTelegramOpts {
   taskId: string
   chatId: number
   messageId: number   // the ack message to edit
+  isVoice?: boolean
 }
 
 export async function streamToTelegram(opts: StreamToTelegramOpts): Promise<void> {
-  const { bot, taskId, chatId, messageId } = opts
+  const { bot, taskId, chatId, messageId, isVoice } = opts
   const channel = STREAM_CHANNEL(taskId)
+
+  // Lazy import to avoid circular dependency (stream-listener imports adapter and vice versa)
+  const { resolveTask } = await import("@/bot/stream-listener")
 
   return new Promise((resolve, reject) => {
     let buffer = "⚡ Working...\n\n"
@@ -62,10 +66,9 @@ export async function streamToTelegram(opts: StreamToTelegramOpts): Promise<void
             break
 
           case "done":
-            buffer = `✅ Done\n\n${event.result.slice(0, 3800)}`
             clearInterval(editTimer!)
-            await flushEdit()
             cleanup()
+            await resolveTask({ bot, chatId, messageId, taskId, result: event.result, isVoice: isVoice ?? false })
             resolve()
             break
 

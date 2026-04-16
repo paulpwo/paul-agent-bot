@@ -9,6 +9,8 @@ import { getScopeKey, getOrCreateSession } from "./session-scope"
 import { enqueueTask } from "@/lib/queue/producer"
 import { db } from "@/lib/db/client"
 import { redis } from "@/lib/redis/client"
+import { watchTaskStream } from "./stream-listener"
+import { wantsVoiceReply } from "./voice-intent"
 const exec = promisify(execFile)
 
 // Download a Telegram file to a local temp path
@@ -98,6 +100,8 @@ export function registerVoiceHandler(bot: Bot<BotContext>): void {
         },
       })
 
+      const voiceReply = wantsVoiceReply(transcript)
+
       const ackMsg = await ctx.reply("⚡ Working on it...", {
         reply_parameters: { message_id: ctx.message.message_id },
       })
@@ -112,9 +116,13 @@ export function registerVoiceHandler(bot: Bot<BotContext>): void {
         threadId: scope.threadId,
         repo,
         prompt: transcript,
+        voiceReply,
       })
 
       await db.task.update({ where: { id: task.id }, data: { bullJobId: jobId } })
+
+      // Watch task stream and edit the ack message with the result
+      void watchTaskStream(bot, task.id)
 
     } catch (err) {
       console.error("[voice-handler] Error:", err)

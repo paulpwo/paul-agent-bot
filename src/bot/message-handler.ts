@@ -4,6 +4,7 @@ import { getScopeKey, getOrCreateSession } from "./session-scope"
 import { enqueueTask } from "@/lib/queue/producer"
 import { db } from "@/lib/db/client"
 import { watchTaskStream } from "./stream-listener"
+import { wantsVoiceReply } from "./voice-intent"
 
 export function registerMessageHandler(bot: Bot<BotContext>): void {
   bot.on("message:text", async (ctx) => {
@@ -27,6 +28,7 @@ export function registerMessageHandler(bot: Bot<BotContext>): void {
     }
 
     const prompt = ctx.message.text
+    const voiceReply = wantsVoiceReply(prompt)
     const scope = getScopeKey(ctx)
 
     // Upsert session in DB
@@ -70,6 +72,7 @@ export function registerMessageHandler(bot: Bot<BotContext>): void {
       threadId: scope.threadId,
       repo,
       prompt,
+      voiceReply,
     })
 
     await db.task.update({ where: { id: task.id }, data: { bullJobId: jobId } })

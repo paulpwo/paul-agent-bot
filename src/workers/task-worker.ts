@@ -16,7 +16,7 @@ const exec = promisify(execFile)
 export const activeAbortControllers = new Map<string, AbortController>()
 
 export async function processTask(data: TaskJobData): Promise<void> {
-  const { taskId, repo, prompt, channel, channelId, threadId } = data
+  const { taskId, repo, prompt, channel, channelId, threadId, voiceReply } = data
   const [owner, name] = repo.split("/")
 
   // Mark task as RUNNING
@@ -90,6 +90,19 @@ gh issue comment ${threadId} --repo ${repo} --body "YOUR_RESPONSE_HERE"
 - If you have a question or need clarification, ask it in the comment.
 - Do NOT post "lol" or short/unhelpful responses.
 - If the comment is ironic, sarcastic, rude, offensive, or insulting — do NOTHING. Do not post any comment, do not run any command, do not acknowledge it in any way. Simply stop.`
+    }
+
+    if (channel === "telegram" && voiceReply) {
+      // Store flag so stream-listener knows to convert result to voice
+      const { redis } = await import("@/lib/redis/client")
+      await redis.set(`tg:voice:${taskId}`, "1", "EX", 3600)
+
+      // Tell agent to end with a spoken summary for TTS conversion
+      systemPrompt += `\n\n---\n\n## Voice Response Required
+
+The user wants your response delivered as a voice note.
+At the very end of your response, add exactly this line (replace the brackets with your text):
+VOICE_SUMMARY: [1-3 sentences, conversational tone, no markdown, no code snippets, no bullet points — as if speaking aloud]`
     }
 
     if (channel === "telegram" && process.env.TELEGRAM_BOT_TOKEN && channelId) {

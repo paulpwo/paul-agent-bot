@@ -9,6 +9,7 @@ export interface TaskJobData {
   repo: string        // "owner/name"
   prompt: string
   modelHint?: "complex" | "coding" | "simple"
+  voiceReply?: boolean  // user requested a voice note response
 }
 
 // Sanitize repo name to valid queue name: "owner/name" → "repo.owner.name"
