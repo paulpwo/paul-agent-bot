@@ -48,7 +48,7 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
       args.push("--resume", opts.agentSessionId)
     }
 
-    args.push(opts.prompt)
+    args.push("--", opts.prompt)  // "--" ends flag parsing — prevents prompts starting with "-" from being treated as options
 
     // Drop from root to uid 1001 (nextjs) so claude --dangerously-skip-permissions works.
     // HOME → /tmp so claude can write its working files (settings, session state).

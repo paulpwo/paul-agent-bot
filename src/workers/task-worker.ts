@@ -199,11 +199,20 @@ Keep messages concise. Use Markdown for formatting if helpful.`
 
     if (!result.success) throw new Error(result.error ?? "Agent failed")
 
-    // Persist the claude session ID for future --resume
-    if (result.sessionId && taskRecord?.sessionId) {
+    // Persist the claude session ID for future --resume.
+    // Voice tasks are NOT resumed — they inject one-shot system prompt instructions that
+    // would leak into subsequent tasks via session history (causing Claude to attempt
+    // voice scripts on unrelated messages).
+    if (result.sessionId && taskRecord?.sessionId && !voiceReply) {
       await db.session.update({
         where: { id: taskRecord.sessionId },
         data: { agentSessionId: result.sessionId },
+      })
+    } else if (voiceReply && taskRecord?.sessionId) {
+      // Clear any existing session so the next task starts fresh
+      await db.session.update({
+        where: { id: taskRecord.sessionId },
+        data: { agentSessionId: null },
       })
     }
 
