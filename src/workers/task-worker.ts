@@ -89,11 +89,13 @@ When the user refers to "this project", "this repo", "este proyecto", "este repo
     // Channel-specific additions
     const extraEnv: Record<string, string> = {}
 
-    if (channel === "github") {
-      // Give the agent a GH_TOKEN so `gh` CLI works inside the workspace
+    // Inject GH_TOKEN for all channels so `gh` CLI works in any context
+    {
       const ghToken = await getInstallationToken(installationId)
       extraEnv.GH_TOKEN = ghToken
+    }
 
+    if (channel === "github") {
       // Inject GitHub response instructions
       systemPrompt += `\n\n---\n\n## GitHub Response Instructions
 
