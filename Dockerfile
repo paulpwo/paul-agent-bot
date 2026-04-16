@@ -1,21 +1,41 @@
-# ── Stage 1: deps ─────────────────────────────────────────────────────────────
-# Install all node_modules (including devDependencies needed for the build)
-FROM node:20-slim AS deps
+# ── Stage 1: sqlite-binary ────────────────────────────────────────────────────
+# Dedicated stage to compile the better-sqlite3 native addon.
+# Isolated so build tools (python3/make/g++) don't pollute other stages.
+FROM node:20-slim AS sqlite-binary
 
-WORKDIR /app
-
-# Build tools needed to compile better-sqlite3 native addon
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \
     python3 make g++ \
   && rm -rf /var/lib/apt/lists/*
 
+RUN npm install --prefix /tmp/sqlite better-sqlite3@12.9.0
+# Binary lands at /tmp/sqlite/node_modules/better-sqlite3/build/Release/better_sqlite3.node
+
+# ── Stage 2: prod-deps ────────────────────────────────────────────────────────
+# Production-only node_modules — prisma (now in dependencies) + all runtime deps.
+# --ignore-scripts skips better-sqlite3 native build here; binary comes from sqlite-binary.
+FROM node:20-slim AS prod-deps
+
+WORKDIR /app
+
 COPY package.json pnpm-lock.yaml .npmrc ./
 COPY prisma ./prisma
 
-RUN corepack enable pnpm && pnpm i --frozen-lockfile && pnpm rebuild better-sqlite3
+RUN corepack enable pnpm \
+  && pnpm i --frozen-lockfile --prod --ignore-scripts \
+  && pnpm exec prisma generate
 
-# ── Stage 2: builder ───────────────────────────────────────────────────────────
-# Build the Next.js application in standalone output mode
+# ── Stage 3: deps ─────────────────────────────────────────────────────────────
+# Full install (dev + prod) needed by the builder for TypeScript compilation.
+FROM node:20-slim AS deps
+
+WORKDIR /app
+
+COPY package.json pnpm-lock.yaml .npmrc ./
+COPY prisma ./prisma
+
+RUN corepack enable pnpm && pnpm i --frozen-lockfile
+
+# ── Stage 4: builder ───────────────────────────────────────────────────────────
 FROM node:20-slim AS builder
 
 WORKDIR /app
@@ -48,27 +68,24 @@ RUN npx esbuild src/workers/index.ts \
   --external:".prisma" \
   --tsconfig=tsconfig.json
 
-# ── Stage 3: gh binary downloader ──────────────────────────────────────────────
-# Download gh CLI tarball in a throwaway stage — binary only lands in runtime
+# ── Stage 5: gh binary downloader ──────────────────────────────────────────────
 FROM debian:bookworm-slim AS gh-bin
 RUN apt-get update -qq && apt-get install -y --no-install-recommends curl ca-certificates \
   && curl -fsSL https://github.com/cli/cli/releases/download/v2.89.0/gh_2.89.0_linux_amd64.tar.gz \
      | tar xz -C /tmp \
   && mv /tmp/gh_2.89.0_linux_amd64/bin/gh /usr/local/bin/gh
 
-# ── Stage 4: runtime ───────────────────────────────────────────────────────────
-# Minimal production image — only the standalone output
+# ── Stage 6: runtime ───────────────────────────────────────────────────────────
+# Minimal production image — standalone Next.js + prod node_modules + sqlite binary
 FROM node:20-slim AS runtime
 
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-
-# Default workspace base — can be overridden at runtime via env or compose
 ENV WORKSPACE_BASE=/data/workspaces
 
-# Install git + claude CLI. Delete man pages/docs manually (purge would remove git too on bookworm)
+# Install git + claude CLI
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \
     git \
     ca-certificates \
@@ -76,51 +93,43 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends \
   && npm install -g @anthropic-ai/claude-code \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Copy gh binary from downloader stage — no curl/keyring overhead in final image
+# Copy gh binary
 COPY --from=gh-bin /usr/local/bin/gh /usr/bin/gh
 
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 --ingroup nodejs nextjs
 
-# Allow uid 1001 (nextjs) to traverse /root so it can read the bind-mounted ~/.claude credentials.
-# The worker spawns claude as uid 1001 to satisfy --dangerously-skip-permissions; HOME stays /root.
+# Allow uid 1001 to traverse /root for bind-mounted ~/.claude credentials
 RUN chmod 755 /root
 
-# Trust all directories for git — workspaces may be owned by root but accessed by uid 1001.
-# Without this, git refuses to operate in repos owned by a different user.
+# Trust all git directories (workspaces owned by root, accessed by uid 1001)
 RUN git config --system --add safe.directory '*'
 
-# Copy the standalone Next.js build
+# ── App files ──────────────────────────────────────────────────────────────────
+
+# Standalone Next.js build (includes its own minimal node_modules for the server)
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 
-# Copy Prisma schema + generated client (needed for migrate deploy at startup)
-COPY --from=builder /app/prisma ./prisma
+# Production node_modules — full dep tree including prisma CLI and all its transitive deps
+# This replaces the standalone's minimal node_modules with the complete production set.
+COPY --from=prod-deps /app/node_modules ./node_modules
+
+# Prisma generated client from builder (schema-aware, must match the app build)
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
-# effect + fast-check + pure-rand required by @prisma/config (prisma migrate deploy)
-# effect/index.js → Arbitrary.js → FastCheck.js → requires fast-check at module load time
-COPY --from=builder /app/node_modules/effect ./node_modules/effect
-COPY --from=builder /app/node_modules/fast-check ./node_modules/fast-check
-COPY --from=builder /app/node_modules/pure-rand ./node_modules/pure-rand
+COPY --from=prod-deps /app/prisma ./prisma
 
-# better-sqlite3 native binary — required by workers-entrypoint.js at runtime
-# Copied from deps stage where build tools (python3/make/g++) compiled the .node binary
-COPY --from=deps /app/node_modules/better-sqlite3 ./node_modules/better-sqlite3
-COPY --from=deps /app/node_modules/bindings ./node_modules/bindings
-COPY --from=deps /app/node_modules/file-uri-to-path ./node_modules/file-uri-to-path
+# better-sqlite3 native binary from dedicated build stage
+# prod-deps used --ignore-scripts so the binary was never compiled there — inject it here.
+RUN mkdir -p ./node_modules/better-sqlite3/build/Release
+COPY --from=sqlite-binary /tmp/sqlite/node_modules/better-sqlite3/build/Release/better_sqlite3.node \
+  ./node_modules/better-sqlite3/build/Release/better_sqlite3.node
 
-# Copy compiled worker bundle
+# Compiled worker bundle
 COPY --from=builder /app/workers-entrypoint.js ./
-
-# ~/.claude will be bind-mounted at runtime as /root/.claude — do NOT bake in
-# WORKSPACE_BASE (/data/workspaces) will be mounted as a named volume
 
 EXPOSE 3000
 
-# Default CMD for the web service (paulbot).
-# Override in docker-compose for paulbot-worker.
 CMD ["node", "server.js"]
