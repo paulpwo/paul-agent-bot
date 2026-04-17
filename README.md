@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/paulpwo/paul-agent-bot/actions/workflows/ci.yml/badge.svg)](https://github.com/paulpwo/paul-agent-bot/actions/workflows/ci.yml)
 [![Deploy](https://github.com/paulpwo/paul-agent-bot/actions/workflows/deploy.yml/badge.svg)](https://github.com/paulpwo/paul-agent-bot/actions/workflows/deploy.yml)
+[![Release](https://github.com/paulpwo/paul-agent-bot/actions/workflows/release-please.yml/badge.svg)](https://github.com/paulpwo/paul-agent-bot/actions/workflows/release-please.yml)
 
 A self-hosted, multi-channel AI coding agent. Mention `@paulagentbot` in a GitHub issue, send a message on Telegram, or use the web dashboard — the agent reads your code, makes changes, opens pull requests, and reports back. Powered by [Claude Code](https://claude.ai/code).
 
@@ -492,6 +493,18 @@ Error: @prisma/client did not initialize yet
 ```
 
 Run `pnpm install` — the `postinstall` script runs `prisma generate` automatically. If it still fails, run `pnpm dlx prisma generate` manually.
+
+---
+
+## CI/CD
+
+| Workflow | Trigger | What it does |
+|----------|---------|-------------|
+| `ci.yml` | PRs to `main` | Runs unit tests — blocks merge if tests fail |
+| `deploy.yml` | Push to `main` | Tests → builds Docker image → deploys to EC2 |
+| `release-please.yml` | Push to `main` | Creates/updates Release PR with auto-generated `CHANGELOG.md` and version bump |
+
+Versioning follows [Conventional Commits](https://www.conventionalcommits.org): `fix:` → patch, `feat:` → minor, `feat!:` / `BREAKING CHANGE` → major.
 
 ---
 
