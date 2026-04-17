@@ -49,6 +49,8 @@ export async function processTask(data: TaskJobData): Promise<void> {
     }
   }, 2000)
 
+  let resolvedDefaultBranch = "main"
+
   try {
     // Get repo record for GitHub installation ID
     const repoRecord = await db.repo.findFirst({ where: { owner, name } })
@@ -61,7 +63,8 @@ export async function processTask(data: TaskJobData): Promise<void> {
     const cloneUrl = await getAuthenticatedCloneUrl(repo, installationId)
 
     // Ensure workspace (clone or pull)
-    const workspacePath = await ensureWorkspace({ repo, cloneUrl, defaultBranch: repoRecord.defaultBranch ?? "main" })
+    resolvedDefaultBranch = repoRecord.defaultBranch ?? "main"
+    const workspacePath = await ensureWorkspace({ repo, cloneUrl, defaultBranch: resolvedDefaultBranch })
     logger.info(`Workspace ready: ${workspacePath}`)
 
     // Load session to get currentBranch (branch agent was on at end of previous task)
@@ -314,9 +317,7 @@ Keep messages concise. Use Markdown for formatting if helpful.`
     // Switch workspace back to default branch for next task
     try {
       const workspacePath = getWorkspacePath(repo)
-      await exec("git", ["checkout", "main"], { cwd: workspacePath }).catch(() =>
-        exec("git", ["checkout", "master"], { cwd: workspacePath })
-      )
+      await exec("git", ["checkout", resolvedDefaultBranch], { cwd: workspacePath })
     } catch { /* non-fatal */ }
   }
 }
