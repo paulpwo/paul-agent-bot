@@ -87,7 +87,9 @@ export async function processTask(data: TaskJobData): Promise<void> {
 You are working on the repository \`${repo}\` (owner: ${owner}, name: ${name}).
 Workspace path: \`${workspacePath}\`
 
-When the user refers to "this project", "this repo", "este proyecto", "este repo", or asks for a summary/overview without further context — they mean THIS repository. Explore the workspace to answer accurately. Do NOT answer about Telegram, bots, or anything outside the codebase unless explicitly asked.`
+When the user refers to "this project", "this repo", "este proyecto", "este repo", or asks for a summary/overview without further context — they mean THIS repository. Explore the workspace to answer accurately. Do NOT answer about Telegram, bots, or anything outside the codebase unless explicitly asked.
+
+When running \`gh\` CLI commands, always pass \`--repo ${repo}\` explicitly — never rely on git remote detection.`
 
     // Channel-specific additions
     const extraEnv: Record<string, string> = {}
@@ -262,19 +264,6 @@ Keep messages concise. Use Markdown for formatting if helpful.`
       }
     } catch {
       // Non-fatal — worst case next task recreates the session branch
-    }
-
-    // Push branch to remote (best-effort — don't fail the task if push fails)
-    try {
-      const token = await getInstallationToken(installationId)
-      await exec("git", [
-        "push",
-        `https://x-access-token:${token}@github.com/${repo}.git`,
-        `HEAD:${branchName}`,
-      ], { cwd: workspacePath })
-      logger.info(`Pushed ${branchName}`)
-    } catch (pushErr) {
-      logger.warn(`Push failed for ${repo} — task still marked COMPLETED:`, pushErr)
     }
 
     const durationMs = Date.now() - startTime
