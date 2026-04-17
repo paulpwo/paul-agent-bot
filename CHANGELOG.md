@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/paulpwo/paul-agent-bot/compare/v1.0.0...v1.0.1) (2026-04-17)
+
+
+### Bug Fixes
+
+* recursive chown after prepareAgentHome so uid:1001 can write .claude/ session files ([2dc94d0](https://github.com/paulpwo/paul-agent-bot/commit/2dc94d0703c219fd75c85da1a44d973ba51e26fd))
+
 ## 1.0.0 (2026-04-17)
 
 
