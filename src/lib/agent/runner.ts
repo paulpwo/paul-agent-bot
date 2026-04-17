@@ -99,10 +99,16 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
   // bash scripts that conflict with the bot's TTS pipeline).
   // - Local dev (non-root): .agent-home/ in the project root — has a minimal CLAUDE.md.
   //   macOS Keychain handles auth so HOME doesn't affect credentials.
-  // - Docker (root): /tmp — auth comes from CLAUDE_CODE_OAUTH_TOKEN env var.
-  const agentHome = isRoot
-    ? "/tmp"
-    : (process.env.PAULBOT_AGENT_HOME ?? path.resolve(process.cwd(), ".agent-home"))
+  // - Docker (root): per-task temp dir owned by uid 1001 — avoids /tmp/.claude ownership
+  //   conflicts when a previous run created the dir as root.
+  let agentHome: string
+  if (isRoot) {
+    agentHome = `/tmp/paulbot-${opts.taskId}`
+    await fs.mkdir(agentHome, { recursive: true })
+    await fs.chown(agentHome, 1001, 1001)
+  } else {
+    agentHome = process.env.PAULBOT_AGENT_HOME ?? path.resolve(process.cwd(), ".agent-home")
+  }
 
   // Copy agent-config/ (skills, MCPs) into agentHome/.claude/ so the subprocess picks
   // them up. Must happen before spawn — await is valid here in the async function body.
@@ -232,6 +238,9 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
     })
 
     child.on("close", async (code) => {
+      // Clean up per-task home dir (Docker only)
+      if (isRoot) fs.rm(agentHome, { recursive: true, force: true }).catch(() => {})
+
       const output = outputLines.join("")
       if (code === 0) {
         await publishStream(redis, opts.taskId, {
