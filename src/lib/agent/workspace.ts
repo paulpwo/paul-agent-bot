@@ -67,20 +67,24 @@ export async function ensureWorkspace(opts: CloneOrPullOptions): Promise<string>
     // Fetch so remote HEAD is up to date before we try to resolve it.
     await exec("git", ["fetch", "origin"], { cwd: workspacePath })
 
-    // Resolve default branch: prefer DB value, then query remote HEAD directly via
-    // ls-remote (most reliable — works even when refs/remotes/origin/HEAD isn't set).
-    let defaultBranch = opts.defaultBranch ?? ""
-    if (!defaultBranch) {
-      try {
-        const { stdout } = await exec(
-          "git", ["ls-remote", "--symref", "origin", "HEAD"],
-          { cwd: workspacePath }
-        )
-        const match = stdout.toString().match(/^ref: refs\/heads\/(\S+)\s+HEAD/m)
-        defaultBranch = match?.[1] ?? "main"
-      } catch {
-        defaultBranch = "main"
+    // Always resolve the real default branch from remote — DB value may be stale/wrong.
+    let defaultBranch = opts.defaultBranch ?? "main"
+    try {
+      const { stdout } = await exec(
+        "git", ["ls-remote", "--symref", "origin", "HEAD"],
+        { cwd: workspacePath }
+      )
+      const match = stdout.toString().match(/^ref: refs\/heads\/(\S+)\s+HEAD/m)
+      if (match?.[1]) {
+        defaultBranch = match[1]
+        // Sync DB if it was stale
+        if (defaultBranch !== opts.defaultBranch) {
+          const [owner, name] = opts.repo.split("/")
+          await db.repo.updateMany({ where: { owner, name }, data: { defaultBranch } })
+        }
       }
+    } catch {
+      // ls-remote failed — keep DB value or "main" as fallback
     }
 
     try {
