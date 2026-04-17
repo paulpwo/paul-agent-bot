@@ -105,7 +105,6 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
   if (isRoot) {
     agentHome = `/tmp/paulbot-${opts.taskId}`
     await fs.mkdir(agentHome, { recursive: true })
-    await fs.chown(agentHome, 1001, 1001)
   } else {
     agentHome = process.env.PAULBOT_AGENT_HOME ?? path.resolve(process.cwd(), ".agent-home")
   }
@@ -113,6 +112,13 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunAgentResult> {
   // Copy agent-config/ (skills, MCPs) into agentHome/.claude/ so the subprocess picks
   // them up. Must happen before spawn — await is valid here in the async function body.
   await prepareAgentHome(agentHome)
+
+  // Recursive chown AFTER prepareAgentHome — it creates .claude/ subdirs as root,
+  // so chown must cover the whole tree for uid:1001 to write session files inside.
+  if (isRoot) {
+    await fs.chown(agentHome, 1001, 1001)
+    await fs.chown(path.join(agentHome, ".claude"), 1001, 1001)
+  }
 
   return new Promise((resolve) => {
     const args: string[] = [
